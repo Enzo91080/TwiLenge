@@ -100,6 +100,7 @@ export const api = {
       botEnabled: boolean
       channelPointsEnabled: boolean
       port: number
+      authCallbackUrl: string
     }>('/status'),
   },
 

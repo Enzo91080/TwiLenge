@@ -35,9 +35,12 @@ export async function authRoutes(fastify: FastifyInstance) {
       })
     }
 
+    const callbackUrl = config.AUTH_CALLBACK_URL
+    console.log('[Auth] AUTH_CALLBACK_URL utilisee:', callbackUrl)
+
     const params = new URLSearchParams({
       client_id: config.TWITCH_CLIENT_ID,
-      redirect_uri: config.AUTH_CALLBACK_URL,
+      redirect_uri: callbackUrl,
       response_type: 'code',
       scope: TWITCH_SCOPES,
       // Force la re-autorisation pour eviter les problemes de token

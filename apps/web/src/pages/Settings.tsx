@@ -102,6 +102,12 @@ export function Settings() {
                 </p>
               </div>
             </div>
+          ) : !authStatus?.connected && status?.authCallbackUrl ? (
+            // Affiche l'URL exacte à enregistrer dans Twitch Developer Console
+            <div className="p-3 rounded-lg bg-fortnite-darker border border-fortnite-border text-xs text-fortnite-muted space-y-1">
+              <p className="font-medium text-white">URL de callback à enregistrer sur Twitch :</p>
+              <code className="text-fortnite-yellow break-all">{status.authCallbackUrl}</code>
+            </div>
           ) : authStatus?.connected ? (
             // Connecté
             <div className="space-y-4">

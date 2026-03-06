@@ -35,6 +35,8 @@ export async function settingsRoutes(fastify: FastifyInstance) {
       botEnabled: config.BOT_ENABLED,
       channelPointsEnabled: config.CHANNEL_POINTS_ENABLED,
       port: config.PORT,
+      // Expose l'URL de callback Twitch pour faciliter la configuration
+      authCallbackUrl: config.AUTH_CALLBACK_URL,
     }
   })
 }
