@@ -41,8 +41,15 @@ export const config = {
     ?? (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
     ?? `http://localhost:${process.env.PORT ?? 3001}`,
 
-  // URL du dashboard web (pour les redirections CORS en dev local)
-  WEB_URL: process.env.WEB_URL ?? 'http://localhost:5173',
+  // URL du dashboard web (pour les redirections apres OAuth)
+  // En prod, c'est la meme URL que le serveur (tout est sur le meme domaine)
+  get WEB_URL() {
+    return process.env.WEB_URL
+      ?? process.env.PUBLIC_URL
+      ?? process.env.RENDER_EXTERNAL_URL
+      ?? (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
+      ?? 'http://localhost:5173'
+  },
   OVERLAY_URL: process.env.OVERLAY_URL ?? 'http://localhost:5174',
 
   // Twitch OAuth redirect URL (utilise PUBLIC_URL en production)
