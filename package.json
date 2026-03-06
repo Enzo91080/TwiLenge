@@ -1,0 +1,15 @@
+{
+  "name": "fortnite-challenge-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run --parallel --filter server --filter web --filter overlay dev",
+    "build": "pnpm run --parallel --filter web --filter overlay build && pnpm run --filter server build",
+    "start": "pnpm run --filter server start"
+  },
+  "workspaces": [
+    "apps/*",
+    "server",
+    "packages/*"
+  ]
+}

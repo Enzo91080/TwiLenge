@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base : fond sombre Fortnite */
+@layer base {
+  html, body, #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-fortnite-darker text-white antialiased;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Scrollbar personnalisee */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-fortnite-darker; }
+  ::-webkit-scrollbar-thumb { @apply bg-fortnite-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-fortnite-muted; }
+}
+
+/* Classes utilitaires custom */
+@layer components {
+  .card {
+    @apply bg-fortnite-card border border-fortnite-border rounded-xl p-4;
+  }
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-fortnite-yellow text-fortnite-darker hover:brightness-110 active:brightness-90;
+  }
+  .btn-danger {
+    @apply btn bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30;
+  }
+  .btn-success {
+    @apply btn bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30;
+  }
+  .btn-ghost {
+    @apply btn text-fortnite-muted hover:text-white hover:bg-white/5;
+  }
+  .input {
+    @apply w-full bg-fortnite-darker border border-fortnite-border rounded-lg px-3 py-2 text-sm text-white placeholder-fortnite-muted focus:outline-none focus:border-fortnite-yellow transition-colors;
+  }
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+}

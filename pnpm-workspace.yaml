@@ -1,0 +1,11 @@
+packages:
+  - 'apps/*'
+  - 'server'
+  - 'packages/*'
+
+# Ces paquets ont besoin de compiler du code natif (C++) au moment de l'installation.
+# better-sqlite3 : base de donnees SQLite (module natif Node.js)
+# esbuild        : bundler JavaScript (binaire precompile)
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
