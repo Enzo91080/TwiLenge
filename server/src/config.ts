@@ -33,9 +33,11 @@ export const config = {
   CHANNEL_POINTS_ENABLED: process.env.CHANNEL_POINTS_ENABLED === 'true',
   CHANNEL_POINTS_REWARD_NAME: process.env.CHANNEL_POINTS_REWARD_NAME ?? 'Defi aleatoire',
 
-  // URL publique de l'application (Railway la fournit automatiquement via RAILWAY_PUBLIC_DOMAIN)
+  // URL publique de l'application
+  // Render injecte RENDER_EXTERNAL_URL, Railway injecte RAILWAY_PUBLIC_DOMAIN
   // En local : http://localhost:3001
   PUBLIC_URL: process.env.PUBLIC_URL
+    ?? process.env.RENDER_EXTERNAL_URL
     ?? (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
     ?? `http://localhost:${process.env.PORT ?? 3001}`,
 
@@ -46,6 +48,7 @@ export const config = {
   // Twitch OAuth redirect URL (utilise PUBLIC_URL en production)
   get AUTH_CALLBACK_URL() {
     const base = process.env.PUBLIC_URL
+      ?? process.env.RENDER_EXTERNAL_URL
       ?? (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null)
       ?? `http://localhost:${process.env.PORT ?? 3001}`
     return `${base}/auth/callback`
