@@ -56,11 +56,26 @@
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   }
 
-  /* Scrollbar personnalisée */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-fortnite-darker; }
+  /* Scrollbar personnalisée (desktop) */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-fortnite-border rounded-full; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-fortnite-muted; }
+
+  /* Support safe-area pour iPhone avec encoche/barre */
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Évite le zoom sur les inputs iOS */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 768px) {
+    input, select, textarea {
+      font-size: 0.875rem;
+    }
+  }
 }
 
 /* ============================================================

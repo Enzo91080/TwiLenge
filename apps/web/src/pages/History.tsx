@@ -1,8 +1,6 @@
 // =============================================================
 // PAGE HISTORIQUE
 // =============================================================
-// Affiche toutes les sessions passées avec leurs défis et scores.
-// =============================================================
 
 import { useQuery } from '@tanstack/react-query'
 import { Trophy, CheckCircle, XCircle, SkipForward, ChevronDown, ChevronRight } from 'lucide-react'
@@ -12,7 +10,6 @@ import { formatDate, statusColor, cn } from '../lib/utils'
 import { STATUS_LABELS } from '@challenge-hub/shared'
 import type { Session, SessionChallenge } from '@challenge-hub/shared'
 import { Card, CardContent } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
 
 export function History() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -25,20 +22,23 @@ export function History() {
   const ended = sessions.filter((s) => s.endedAt)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Historique</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-white">Historique</h1>
         <p className="text-sm text-fortnite-muted mt-0.5">{ended.length} session(s) terminée(s)</p>
       </div>
 
       {isLoading ? (
-        <div className="text-center text-fortnite-muted py-12">Chargement...</div>
+        <div className="text-center text-fortnite-muted py-16">
+          <div className="text-3xl mb-3 animate-pulse">📊</div>
+          Chargement...
+        </div>
       ) : ended.length === 0 ? (
         <Card className="text-center border-dashed">
-          <CardContent className="py-12">
-            <div className="text-3xl mb-3">📊</div>
+          <CardContent className="py-14">
+            <div className="text-4xl mb-3">📊</div>
             <div className="text-white font-medium">Aucune session terminée</div>
-            <div className="text-fortnite-muted text-sm mt-1">
+            <div className="text-fortnite-muted text-sm mt-1 max-w-xs mx-auto">
               Lance une session depuis le Dashboard et termine-la pour voir l'historique.
             </div>
           </CardContent>
@@ -60,12 +60,8 @@ export function History() {
   )
 }
 
-// --- COMPOSANT INTERNE : ligne de session ---
 function SessionRow({
-  session,
-  challenges,
-  isExpanded,
-  onToggle,
+  session, challenges, isExpanded, onToggle,
 }: {
   session: Session
   challenges: SessionChallenge[]
@@ -75,73 +71,73 @@ function SessionRow({
   const completed = challenges.filter((c) => c.status === 'completed')
   const failed = challenges.filter((c) => c.status === 'failed')
   const skipped = challenges.filter((c) => c.status === 'skipped')
-
   const duration = session.endedAt
     ? Math.round((new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime()) / 60000)
     : null
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        {/* En-tête de session (cliquable pour expand) */}
+    <Card className="overflow-hidden">
+      <CardContent className="p-0">
+        {/* En-tête cliquable */}
         <button
-          className="w-full flex items-center justify-between gap-4 text-left"
+          className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/3 transition-colors"
           onClick={onToggle}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {isExpanded
               ? <ChevronDown className="w-4 h-4 text-fortnite-muted shrink-0" />
               : <ChevronRight className="w-4 h-4 text-fortnite-muted shrink-0" />
             }
-            <div>
-              <div className="font-semibold text-white">Session #{session.id}</div>
-              <div className="text-xs text-fortnite-muted">
+            <div className="min-w-0">
+              <div className="font-semibold text-white text-sm">Session #{session.id}</div>
+              <div className="text-xs text-fortnite-muted truncate">
                 {formatDate(session.startedAt)}
-                {duration !== null && ` • ${duration} min`}
+                {duration !== null && ` · ${duration} min`}
               </div>
             </div>
           </div>
 
-          {/* Stats rapides */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="flex items-center gap-1.5 text-green-400">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">{completed.length}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-red-400">
-              <XCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">{failed.length}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-yellow-400">
-              <SkipForward className="w-4 h-4" />
-              <span className="text-sm font-medium">{skipped.length}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-fortnite-yellow">
-              <Trophy className="w-4 h-4" />
-              <span className="text-sm font-bold">{session.totalPoints} pts</span>
-            </div>
+          {/* Stats rapides — icônes + chiffres */}
+          <div className="flex items-center gap-3 shrink-0 text-sm">
+            <span className="flex items-center gap-1 text-green-400">
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span className="font-medium">{completed.length}</span>
+            </span>
+            <span className="flex items-center gap-1 text-red-400">
+              <XCircle className="w-3.5 h-3.5" />
+              <span className="font-medium">{failed.length}</span>
+            </span>
+            <span className="flex items-center gap-1 text-yellow-400">
+              <SkipForward className="w-3.5 h-3.5" />
+              <span className="font-medium">{skipped.length}</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-fortnite-yellow font-bold">
+              <Trophy className="w-3.5 h-3.5" />
+              {session.totalPoints}
+            </span>
           </div>
         </button>
 
-        {/* Détail des défis (collapse) */}
+        {/* Détail des défis */}
         {isExpanded && (
-          <div className="mt-4 pt-4 border-t border-fortnite-border space-y-2">
-            {challenges.map((sc) => (
+          <div className="border-t border-fortnite-border">
+            {challenges.map((sc, i) => (
               <div
                 key={sc.id}
-                className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-fortnite-darker"
+                className={cn(
+                  'flex items-center justify-between gap-3 px-4 py-2.5 text-sm',
+                  i > 0 && 'border-t border-fortnite-border/50',
+                )}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-white truncate">{sc.challenge.title}</div>
+                  <div className="text-white truncate">{sc.challenge.title}</div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={cn('badge', statusColor(sc.status))}>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={cn('badge text-xs', statusColor(sc.status))}>
                     {STATUS_LABELS[sc.status]}
                   </span>
                   {sc.pointsEarned > 0 && (
-                    <span className="text-fortnite-yellow text-sm font-medium">
-                      +{sc.pointsEarned} pts
-                    </span>
+                    <span className="text-fortnite-yellow font-medium text-xs">+{sc.pointsEarned}</span>
                   )}
                 </div>
               </div>

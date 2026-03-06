@@ -1,8 +1,6 @@
 // =============================================================
 // PAGE GESTION DES DÉFIS
 // =============================================================
-// Permet de créer, modifier, supprimer et réordonner les défis.
-// =============================================================
 
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -12,12 +10,15 @@ import { ManageChallengeCard } from '../components/ChallengeCard'
 import { ChallengeForm } from '../components/ChallengeForm'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { Challenge } from '@challenge-hub/shared'
 
 export function Challenges() {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null)
+  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const onSuccess = () => qc.invalidateQueries({ queryKey: ['challenges'] })
@@ -38,31 +39,13 @@ export function Challenges() {
     onSuccess: () => { onSuccess(); setEditingChallenge(null) },
   })
 
-  const deleteMut = useMutation({
-    mutationFn: api.challenges.delete,
-    onSuccess,
-  })
+  const deleteMut = useMutation({ mutationFn: api.challenges.delete, onSuccess })
+  const resetMut = useMutation({ mutationFn: api.challenges.reset, onSuccess })
 
-  const resetMut = useMutation({
-    mutationFn: api.challenges.reset,
-    onSuccess,
-  })
+  const handleDelete = (id: number) => setDeleteId(id)
+  const handleReset = () => setShowResetConfirm(true)
 
-  const handleDelete = (id: number) => {
-    if (confirm('Supprimer ce défi ? Cette action est irréversible.')) {
-      deleteMut.mutate(id)
-    }
-  }
-
-  const handleReset = () => {
-    if (confirm('Réinitialiser TOUS les défis aux valeurs par défaut ? Tous tes défis personnalisés seront supprimés.')) {
-      resetMut.mutate()
-    }
-  }
-
-  const handleExport = () => {
-    window.open(api.challenges.exportUrl, '_blank')
-  }
+  const handleExport = () => window.open(api.challenges.exportUrl, '_blank')
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -72,59 +55,73 @@ export function Challenges() {
       const data = JSON.parse(text)
       await api.challenges.import(Array.isArray(data) ? data : [data])
       onSuccess()
-      alert(`${Array.isArray(data) ? data.length : 1} défi(s) importé(s) avec succès !`)
+      alert(`${Array.isArray(data) ? data.length : 1} défi(s) importé(s) !`)
     } catch {
-      alert("Erreur : le fichier n'est pas un fichier de défis valide.")
+      alert("Erreur : fichier invalide.")
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteId(null) }}
+        title="Supprimer ce défi ?"
+        description="Cette action est irréversible."
+        confirmLabel="Supprimer"
+        variant="destructive"
+        onConfirm={() => { if (deleteId !== null) deleteMut.mutate(deleteId) }}
+        isLoading={deleteMut.isPending}
+      />
+
+      <ConfirmDialog
+        open={showResetConfirm}
+        onOpenChange={setShowResetConfirm}
+        title="Réinitialiser tous les défis ?"
+        description="Tes défis personnalisés seront supprimés et remplacés par les défis par défaut. Cette action est irréversible."
+        confirmLabel="Réinitialiser"
+        variant="destructive"
+        onConfirm={() => resetMut.mutate()}
+        isLoading={resetMut.isPending}
+      />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Défis</h1>
-          <p className="text-sm text-fortnite-muted mt-0.5">{challenges.length} défi(s) configuré(s)</p>
+          <h1 className="text-xl md:text-2xl font-bold text-white">Défis</h1>
+          <p className="text-sm text-fortnite-muted mt-0.5">{challenges.length} défi(s)</p>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="ghost" size="sm" onClick={handleExport} title="Exporter en JSON">
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <Button variant="ghost" size="icon" onClick={handleExport} title="Exporter JSON">
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Exporter</span>
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} title="Importer depuis JSON">
+          <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} title="Importer JSON">
             <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Importer</span>
           </Button>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleReset}
-            className="text-red-400/70 hover:text-red-400 hover:bg-red-500/10"
-            title="Réinitialiser les défis par défaut"
+            className="text-red-400/60 hover:text-red-400 hover:bg-red-500/10"
+            title="Réinitialiser"
           >
             <RotateCcw className="w-4 h-4" />
-            <span className="hidden sm:inline">Réinitialiser</span>
           </Button>
-          <Button onClick={() => { setEditingChallenge(null); setShowForm(true) }} size="sm">
+          <Button size="sm" onClick={() => { setEditingChallenge(null); setShowForm(true) }}>
             <Plus className="w-4 h-4" />
-            Nouveau défi
+            <span className="hidden sm:inline">Nouveau défi</span>
+            <span className="sm:hidden">Nouveau</span>
           </Button>
         </div>
 
-        {/* Input fichier caché pour l'import */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          className="hidden"
-          onChange={handleImport}
-        />
+        <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
       </div>
 
-      {/* Formulaire de création */}
+      {/* Formulaire création */}
       {showForm && !editingChallenge && (
         <Card className="border-fortnite-yellow/20">
           <CardHeader>
@@ -140,7 +137,7 @@ export function Challenges() {
         </Card>
       )}
 
-      {/* Formulaire d'édition */}
+      {/* Formulaire édition */}
       {editingChallenge && (
         <Card className="border-fortnite-yellow/20">
           <CardHeader>
@@ -157,17 +154,22 @@ export function Challenges() {
         </Card>
       )}
 
-      {/* Liste des défis */}
+      {/* Liste */}
       {isLoading ? (
-        <div className="text-center text-fortnite-muted py-12">Chargement...</div>
+        <div className="text-center text-fortnite-muted py-16">
+          <div className="text-3xl mb-3 animate-pulse">⚙️</div>
+          Chargement...
+        </div>
       ) : challenges.length === 0 ? (
         <Card className="text-center border-dashed">
-          <CardContent className="py-12">
-            <div className="text-3xl mb-3">📋</div>
+          <CardContent className="py-14">
+            <div className="text-4xl mb-3">📋</div>
             <div className="text-white font-medium">Aucun défi configuré</div>
-            <div className="text-fortnite-muted text-sm mt-1">
-              Clique sur "Nouveau défi" pour en ajouter un.
-            </div>
+            <div className="text-fortnite-muted text-sm mt-1">Clique sur "Nouveau" pour en ajouter un.</div>
+            <Button className="mt-5" onClick={() => { setEditingChallenge(null); setShowForm(true) }}>
+              <Plus className="w-4 h-4" />
+              Créer un défi
+            </Button>
           </CardContent>
         </Card>
       ) : (

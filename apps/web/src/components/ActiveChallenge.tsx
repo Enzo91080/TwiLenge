@@ -1,9 +1,6 @@
 // =============================================================
 // COMPOSANT DÉFI ACTIF
 // =============================================================
-// Panneau central du dashboard affichant le défi en cours.
-// Contient les boutons Complété / Échoué / Passé et le timer.
-// =============================================================
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, XCircle, SkipForward, Timer, Play, Square } from 'lucide-react'
@@ -32,13 +29,11 @@ export function ActiveChallenge() {
 
   if (!activeChallenge) {
     return (
-      <Card className="flex flex-col items-center justify-center text-center min-h-[220px] border-dashed">
-        <CardContent className="flex flex-col items-center justify-center gap-2 py-8">
+      <Card className="flex flex-col items-center justify-center text-center min-h-[180px] md:min-h-[220px] border-dashed">
+        <CardContent className="flex flex-col items-center gap-2 py-8">
           <div className="text-4xl">🎯</div>
           <p className="text-fortnite-muted text-sm">Aucun défi actif</p>
-          <p className="text-fortnite-muted/60 text-xs">
-            Clique sur un défi ci-dessous pour le lancer
-          </p>
+          <p className="text-fortnite-muted/50 text-xs">Appuie sur un défi en attente pour le lancer</p>
         </CardContent>
       </Card>
     )
@@ -47,25 +42,20 @@ export function ActiveChallenge() {
   const c = activeChallenge.challenge
   const hasTimer = c.timerSeconds !== null
   const timerRunning = timerSecondsLeft !== null
-
-  // Couleur du timer selon le temps restant
-  const timerColor =
-    timerSecondsLeft !== null && timerSecondsLeft <= 30
-      ? 'text-red-400'
-      : 'text-fortnite-yellow'
+  const timerCritical = timerSecondsLeft !== null && timerSecondsLeft <= 30
 
   return (
-    <Card className="border-fortnite-yellow/30 bg-fortnite-yellow/5 animate-fade-in">
-      <CardContent className="p-4 space-y-4">
+    <Card className="border-fortnite-yellow/30 bg-gradient-to-b from-fortnite-yellow/5 to-transparent animate-fade-in">
+      <CardContent className="p-4 md:p-5 space-y-4">
+
         {/* Header : badges + titre + points */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1">
-            {/* Badges catégorie + difficulté */}
+          <div className="flex-1 min-w-0">
             <div className="flex flex-wrap gap-1.5 mb-2">
-              <span className={cn('badge border', categoryColor(c.category))}>
+              <span className={cn('badge border text-xs', categoryColor(c.category))}>
                 {CATEGORY_LABELS[c.category]}
               </span>
-              <span className={cn('badge border', difficultyColor(c.difficulty))}>
+              <span className={cn('badge border text-xs', difficultyColor(c.difficulty))}>
                 {DIFFICULTY_LABELS[c.difficulty]}
               </span>
               {hasTimer && (
@@ -75,88 +65,78 @@ export function ActiveChallenge() {
                 </Badge>
               )}
             </div>
-            <h2 className="text-xl font-bold text-white leading-tight">{c.title}</h2>
+            <h2 className="text-lg md:text-xl font-bold text-white leading-tight">{c.title}</h2>
             {c.description && (
-              <p className="text-sm text-fortnite-muted mt-1">{c.description}</p>
+              <p className="text-sm text-fortnite-muted mt-1 leading-relaxed">{c.description}</p>
             )}
           </div>
 
           {/* Points */}
-          <div className="text-right shrink-0">
-            <div className="text-2xl font-bold text-fortnite-yellow">{c.points}</div>
-            <div className="text-xs text-fortnite-muted">points</div>
+          <div className="text-right shrink-0 bg-fortnite-yellow/10 rounded-xl px-3 py-2 border border-fortnite-yellow/20">
+            <div className="text-2xl md:text-3xl font-bold text-fortnite-yellow leading-none">{c.points}</div>
+            <div className="text-xs text-fortnite-muted mt-0.5">pts</div>
           </div>
         </div>
 
-        {/* Compte à rebours du timer */}
+        {/* Compte à rebours */}
         {timerRunning && timerSecondsLeft !== null && (
           <div
             className={cn(
-              'text-4xl font-mono font-bold text-center py-3 tracking-widest rounded-lg bg-black/20',
-              timerColor,
+              'text-4xl md:text-5xl font-mono font-bold text-center py-4 rounded-xl tracking-widest border',
+              timerCritical
+                ? 'text-red-400 bg-red-500/10 border-red-500/20 animate-pulse'
+                : 'text-fortnite-yellow bg-fortnite-yellow/5 border-fortnite-yellow/15',
             )}
           >
             {formatTime(timerSecondsLeft)}
           </div>
         )}
 
-        {/* Contrôles du timer */}
+        {/* Contrôles timer */}
         {hasTimer && (
-          <div className="flex gap-2">
-            {!timerRunning ? (
-              <Button
-                variant="blue"
-                className="flex-1"
-                onClick={() => timerStartMut.mutate()}
-                disabled={timerStartMut.isPending}
-              >
-                <Play className="w-4 h-4" />
-                Démarrer le timer
-              </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => timerStopMut.mutate()}
-                disabled={timerStopMut.isPending}
-              >
-                <Square className="w-4 h-4" />
-                Arrêter le timer
-              </Button>
-            )}
-          </div>
+          <Button
+            variant={timerRunning ? 'secondary' : 'blue'}
+            className="w-full"
+            onClick={() => timerRunning ? timerStopMut.mutate() : timerStartMut.mutate()}
+            disabled={timerStartMut.isPending || timerStopMut.isPending}
+          >
+            {timerRunning
+              ? <><Square className="w-4 h-4" /> Arrêter le timer</>
+              : <><Play className="w-4 h-4" /> Démarrer le timer</>
+            }
+          </Button>
         )}
 
-        {/* Actions principales */}
+        {/* Actions — pleine largeur sur mobile */}
         <div className="grid grid-cols-3 gap-2">
           <Button
             variant="success"
-            className="py-3 flex-col gap-1 h-auto"
+            className="flex-col gap-1 h-14 md:h-12"
             onClick={() => completeMut.mutate()}
             disabled={isLoading}
           >
             <CheckCircle className="w-5 h-5" />
-            <span className="hidden sm:inline text-xs">Complété</span>
+            <span className="text-xs">Complété</span>
           </Button>
 
           <Button
             variant="destructive"
-            className="py-3 flex-col gap-1 h-auto"
+            className="flex-col gap-1 h-14 md:h-12"
             onClick={() => failMut.mutate()}
             disabled={isLoading}
           >
             <XCircle className="w-5 h-5" />
-            <span className="hidden sm:inline text-xs">Échoué</span>
+            <span className="text-xs">Échoué</span>
           </Button>
 
           <Button
             variant="secondary"
-            className="py-3 flex-col gap-1 h-auto"
+            className="flex-col gap-1 h-14 md:h-12"
             onClick={() => skipMut.mutate()}
             disabled={isLoading}
           >
             <SkipForward className="w-5 h-5" />
-            <span className="hidden sm:inline text-xs">Passer</span>
+            <span className="text-xs">Passer</span>
           </Button>
         </div>
       </CardContent>

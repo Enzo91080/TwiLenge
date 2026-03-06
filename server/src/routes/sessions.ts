@@ -80,6 +80,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
 
     broadcast({ type: 'SESSION_ENDED', data: ended! })
     resetState()
+    broadcastState() // Envoie le nouvel etat vide a tous les clients connectes
 
     return { success: true, session: ended }
   })

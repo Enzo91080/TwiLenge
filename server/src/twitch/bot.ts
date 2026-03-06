@@ -82,9 +82,12 @@ export async function startTwitchBot() {
       // Verifier si l'utilisateur est le streamer (pour les commandes admin)
       const isStreamer = user.toLowerCase() === config.TWITCH_CHANNEL.toLowerCase()
 
+      // Helper : verifie si une commande est activee (activee par defaut)
+      const isCmdEnabled = (key: string) => getSetting(`bot_cmd_${key}`) !== 'false'
+
       // --- COMMANDES PUBLIQUES ---
 
-      if (cmd === 'defi' || cmd === 'challenge') {
+      if ((cmd === 'defi' || cmd === 'challenge') && isCmdEnabled('defi')) {
         if (!state.activeChallenge) {
           chatClient?.say(channel, 'Aucun defi actif pour le moment !')
         } else {
@@ -95,7 +98,7 @@ export async function startTwitchBot() {
         return
       }
 
-      if (cmd === 'score') {
+      if (cmd === 'score' && isCmdEnabled('score')) {
         if (!state.session) {
           chatClient?.say(channel, 'Aucune session en cours.')
         } else {
@@ -109,7 +112,7 @@ export async function startTwitchBot() {
         return
       }
 
-      if (cmd === 'prochains' || cmd === 'next') {
+      if ((cmd === 'prochains' || cmd === 'next') && isCmdEnabled('prochains')) {
         const pending = state.pendingChallenges.slice(0, 3)
         if (pending.length === 0) {
           chatClient?.say(channel, 'Plus aucun defi en attente.')
@@ -120,7 +123,7 @@ export async function startTwitchBot() {
         return
       }
 
-      if (cmd === 'vote') {
+      if (cmd === 'vote' && isCmdEnabled('vote')) {
         const num = parseInt(args[0])
         if (isNaN(num) || num < 1) {
           chatClient?.say(channel, `Usage: ${prefix}vote <numero> (ex: ${prefix}vote 1)`)
@@ -144,7 +147,7 @@ export async function startTwitchBot() {
 
       if (!isStreamer) return
 
-      if (cmd === 'ok' || cmd === 'complete') {
+      if ((cmd === 'ok' || cmd === 'complete') && isCmdEnabled('ok')) {
         if (!state.activeChallenge) {
           chatClient?.say(channel, 'Aucun defi actif.')
           return
@@ -164,7 +167,7 @@ export async function startTwitchBot() {
         return
       }
 
-      if (cmd === 'fail') {
+      if (cmd === 'fail' && isCmdEnabled('fail')) {
         if (!state.activeChallenge) {
           chatClient?.say(channel, 'Aucun defi actif.')
           return
@@ -181,7 +184,7 @@ export async function startTwitchBot() {
         return
       }
 
-      if (cmd === 'skip') {
+      if (cmd === 'skip' && isCmdEnabled('skip')) {
         if (!state.activeChallenge) {
           chatClient?.say(channel, 'Aucun defi actif.')
           return
