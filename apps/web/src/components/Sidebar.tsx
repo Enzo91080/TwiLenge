@@ -44,6 +44,7 @@ export function Sidebar({ connected, hasActiveSession }: SidebarProps) {
 
   const twitchConnected = authStatus?.connected ?? false
   const twitchChannel = authStatus?.channel
+  const twitchAvatar = authStatus?.profileImageUrl
 
   return (
     <aside className="w-56 bg-fortnite-card border-r border-fortnite-border flex flex-col shrink-0">
@@ -103,7 +104,15 @@ export function Sidebar({ connected, hasActiveSession }: SidebarProps) {
           title={twitchConnected ? `Connecté en tant que @${twitchChannel}` : 'Twitch non connecté — va dans Paramètres'}
         >
           {twitchConnected ? (
-            <Twitch className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            twitchAvatar ? (
+              <img
+                src={twitchAvatar}
+                alt={twitchChannel}
+                className="w-5 h-5 rounded-full shrink-0"
+              />
+            ) : (
+              <Twitch className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            )
           ) : (
             <AlertCircle className="w-3.5 h-3.5 text-fortnite-muted shrink-0" />
           )}

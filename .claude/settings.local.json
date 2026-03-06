@@ -12,7 +12,9 @@
       "Bash(taskkill:*)",
       "Bash(netstat:*)",
       "Bash(cmd:*)",
-      "Bash(pnpm:*)"
+      "Bash(pnpm:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

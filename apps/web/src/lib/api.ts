@@ -28,6 +28,23 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+// Les routes /auth/* sont enregistrees SANS prefixe /api sur le serveur.
+// On utilise une fonction separee qui n'ajoute pas /api, afin que le proxy
+// Vite (et la prod Fastify) les trouve correctement sur /auth/...
+async function authRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (options?.body) headers['Content-Type'] = 'application/json'
+
+  const res = await fetch(path, { headers, ...options })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error(body.error ?? `Erreur ${res.status}`)
+  }
+
+  return res.json()
+}
+
 // --- DEFIS ---
 
 export const api = {
@@ -87,8 +104,8 @@ export const api = {
   },
 
   auth: {
-    status: () => request<{ connected: boolean; channel?: string; reason?: string }>('/auth/status'),
+    status: () => authRequest<{ connected: boolean; channel?: string; login?: string; profileImageUrl?: string | null; reason?: string }>('/auth/status'),
     twitchUrl: '/auth/twitch',
-    logout: () => request<{ success: boolean }>('/auth/logout', { method: 'POST' }),
+    logout: () => authRequest<{ success: boolean }>('/auth/logout', { method: 'POST' }),
   },
 }

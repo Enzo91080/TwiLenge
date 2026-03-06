@@ -83,10 +83,28 @@ export async function authRoutes(fastify: FastifyInstance) {
         throw new Error('Pas de token dans la reponse Twitch')
       }
 
+      // Recuperer les infos du compte Twitch connecte (displayName + avatar)
+      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+          'Client-Id': config.TWITCH_CLIENT_ID,
+        },
+      })
+      const userData = await userResponse.json() as {
+        data: Array<{ display_name: string; login: string; profile_image_url: string }>
+      }
+      const twitchUser = userData.data?.[0]
+
       // Sauvegarder les tokens en BDD
       setSetting('twitch_access_token', tokens.access_token)
       setSetting('twitch_refresh_token', tokens.refresh_token)
       setSetting('twitch_token_expires_at', String(Date.now() + tokens.expires_in * 1000))
+      // Sauvegarder les infos utilisateur Twitch
+      if (twitchUser) {
+        setSetting('twitch_display_name', twitchUser.display_name)
+        setSetting('twitch_login', twitchUser.login)
+        setSetting('twitch_profile_image_url', twitchUser.profile_image_url)
+      }
 
       // Redemarrer le bot et EventSub avec les nouveaux tokens
       stopTwitchBot()
@@ -111,7 +129,11 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     return {
       connected: true,
-      channel: config.TWITCH_CHANNEL,
+      // Infos recuperees depuis l'API Twitch lors du OAuth (stockees en DB)
+      // Fallback sur la valeur .env si l'utilisateur n'a pas encore refait le OAuth
+      channel: getSetting('twitch_display_name') || getSetting('twitch_login') || config.TWITCH_CHANNEL,
+      login: getSetting('twitch_login') || config.TWITCH_CHANNEL,
+      profileImageUrl: getSetting('twitch_profile_image_url') || null,
     }
   })
 
