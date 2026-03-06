@@ -2,24 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base : fond sombre Fortnite */
+/* ============================================================
+   VARIABLES CSS - Palette Fortnite mappée sur shadcn/ui
+   ============================================================ */
 @layer base {
+  :root {
+    /* Fond principal #090D13 */
+    --background: 215 36% 6%;
+    --foreground: 0 0% 100%;
+
+    /* Cartes #161B22 */
+    --card: 215 21% 11%;
+    --card-foreground: 0 0% 100%;
+
+    /* Popovers / dropdowns */
+    --popover: 215 21% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Primaire = jaune Fortnite #F0C540 */
+    --primary: 43 85% 60%;
+    --primary-foreground: 215 36% 6%;
+
+    /* Secondaire */
+    --secondary: 215 15% 15%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted */
+    --muted: 215 15% 15%;
+    --muted-foreground: 210 8% 58%;
+
+    /* Accent (hover léger) */
+    --accent: 215 15% 18%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive = rouge */
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Bordure #21262D */
+    --border: 215 15% 15%;
+    --input: 215 15% 15%;
+    --ring: 43 85% 60%;
+
+    --radius: 0.75rem;
+  }
+
   html, body, #root {
     @apply h-full;
   }
+
   body {
-    @apply bg-fortnite-darker text-white antialiased;
+    @apply bg-background text-foreground antialiased;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   }
 
-  /* Scrollbar personnalisee */
+  /* Scrollbar personnalisée */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { @apply bg-fortnite-darker; }
   ::-webkit-scrollbar-thumb { @apply bg-fortnite-border rounded-full; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-fortnite-muted; }
 }
 
-/* Classes utilitaires custom */
+/* ============================================================
+   CLASSES UTILITAIRES (conservées pour compatibilité overlay)
+   ============================================================ */
 @layer components {
   .card {
     @apply bg-fortnite-card border border-fortnite-border rounded-xl p-4;

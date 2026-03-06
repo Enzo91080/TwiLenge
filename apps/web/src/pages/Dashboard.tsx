@@ -1,8 +1,8 @@
 // =============================================================
-// PAGE DASHBOARD - Panneau de controle principal
+// PAGE DASHBOARD - Panneau de contrôle principal
 // =============================================================
-// C'est la page principale. Le streamer la garde ouverte pendant
-// son stream pour controler les defis en temps reel.
+// C'est la page principale. Le streameur la garde ouverte pendant
+// son stream pour contrôler les défis en temps réel.
 // =============================================================
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,8 @@ import { api } from '../lib/api'
 import { useAppState } from '../lib/context'
 import { ActiveChallenge } from '../components/ActiveChallenge'
 import { PendingChallengeCard } from '../components/ChallengeCard'
+import { Button } from '../components/ui/button'
+import { Card, CardContent } from '../components/ui/card'
 
 export function Dashboard() {
   const { appState } = useAppState()
@@ -27,7 +29,6 @@ export function Dashboard() {
     onSuccess,
   })
 
-  const totalChallenges = completedCount + failedCount + skippedCount + pendingChallenges.length + (activeChallenge ? 1 : 0)
   const totalPoints = session?.totalPoints ?? 0
 
   return (
@@ -36,53 +37,51 @@ export function Dashboard() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
 
-        {/* Controles de session */}
+        {/* Contrôles de session */}
         {!session ? (
-          <button
-            onClick={() => startMut.mutate()}
-            disabled={startMut.isPending}
-            className="btn-primary"
-          >
+          <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
             <Play className="w-4 h-4" />
-            Demarrer la session
-          </button>
+            Démarrer la session
+          </Button>
         ) : (
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="purple"
               onClick={() => spinMut.mutate()}
               disabled={spinMut.isPending || pendingChallenges.length === 0}
-              className="btn bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30"
-              title="Activer un defi aleatoire parmi les defis en attente"
+              title="Activer un défi aléatoire parmi les défis en attente"
             >
               <Shuffle className="w-4 h-4" />
-              Aleatoire
-            </button>
-            <button
+              Aléatoire
+            </Button>
+            <Button
+              variant="destructive"
               onClick={() => {
-                if (confirm('Terminer la session ? Le score sera sauvegarde.')) {
+                if (confirm('Terminer la session ? Le score sera sauvegardé.')) {
                   endMut.mutate()
                 }
               }}
               disabled={endMut.isPending}
-              className="btn-danger"
             >
               <Square className="w-4 h-4" />
               Terminer la session
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
       {/* Pas de session : message d'accueil */}
       {!session && (
-        <div className="card text-center py-12">
-          <div className="text-5xl mb-4">🎮</div>
-          <h2 className="text-xl font-bold text-white mb-2">Pret a streamer ?</h2>
-          <p className="text-fortnite-muted text-sm max-w-md mx-auto">
-            Clique sur "Demarrer la session" pour lancer une nouvelle session de defis.
-            Tous tes defis seront charges automatiquement.
-          </p>
-        </div>
+        <Card className="text-center">
+          <CardContent className="py-12">
+            <div className="text-5xl mb-4">🎮</div>
+            <h2 className="text-xl font-bold text-white mb-2">Prêt à streamer ?</h2>
+            <p className="text-fortnite-muted text-sm max-w-md mx-auto">
+              Clique sur "Démarrer la session" pour lancer une nouvelle session de défis.
+              Tous tes défis seront chargés automatiquement.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Session en cours */}
@@ -98,41 +97,41 @@ export function Dashboard() {
             />
             <StatCard
               icon={<Target className="w-5 h-5 text-green-400" />}
-              label="Completes"
+              label="Complétés"
               value={completedCount}
               color="text-green-400"
             />
             <StatCard
               icon={<XCircle className="w-5 h-5 text-red-400" />}
-              label="Echoues"
+              label="Échoués"
               value={failedCount}
               color="text-red-400"
             />
             <StatCard
               icon={<SkipForward className="w-5 h-5 text-yellow-400" />}
-              label="Passes"
+              label="Passés"
               value={skippedCount}
               color="text-yellow-400"
             />
           </div>
 
-          {/* Defi actif */}
+          {/* Défi actif */}
           <div>
-            <h2 className="text-sm font-medium text-fortnite-muted uppercase tracking-wider mb-3">
-              Defi en cours
+            <h2 className="text-xs font-semibold text-fortnite-muted uppercase tracking-wider mb-3">
+              Défi en cours
             </h2>
             <ActiveChallenge />
           </div>
 
-          {/* Queue des defis en attente */}
+          {/* Queue des défis en attente */}
           {pendingChallenges.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-medium text-fortnite-muted uppercase tracking-wider">
-                  Defis en attente ({pendingChallenges.length})
+                <h2 className="text-xs font-semibold text-fortnite-muted uppercase tracking-wider">
+                  Défis en attente ({pendingChallenges.length})
                 </h2>
                 <span className="text-xs text-fortnite-muted">
-                  Clique sur un defi pour l'activer
+                  Clique pour activer
                 </span>
               </div>
               <div className="space-y-2">
@@ -149,15 +148,17 @@ export function Dashboard() {
             </div>
           )}
 
-          {/* Plus aucun defi */}
+          {/* Plus aucun défi */}
           {pendingChallenges.length === 0 && !activeChallenge && (
-            <div className="card text-center py-8 border-dashed">
-              <div className="text-3xl mb-2">🏆</div>
-              <div className="text-white font-medium">Tous les defis sont termines !</div>
-              <div className="text-fortnite-muted text-sm mt-1">
-                Score final : {totalPoints} points
-              </div>
-            </div>
+            <Card className="text-center border-dashed">
+              <CardContent className="py-8">
+                <div className="text-3xl mb-2">🏆</div>
+                <div className="text-white font-medium">Tous les défis sont terminés !</div>
+                <div className="text-fortnite-muted text-sm mt-1">
+                  Score final : {totalPoints} points
+                </div>
+              </CardContent>
+            </Card>
           )}
         </>
       )}
@@ -173,10 +174,12 @@ function StatCard({ icon, label, value, color }: {
   color: string
 }) {
   return (
-    <div className="card text-center">
-      <div className="flex justify-center mb-1">{icon}</div>
-      <div className={`text-2xl font-bold ${color}`}>{value}</div>
-      <div className="text-xs text-fortnite-muted mt-0.5">{label}</div>
-    </div>
+    <Card>
+      <CardContent className="p-4 text-center">
+        <div className="flex justify-center mb-1">{icon}</div>
+        <div className={`text-2xl font-bold ${color}`}>{value}</div>
+        <div className="text-xs text-fortnite-muted mt-0.5">{label}</div>
+      </CardContent>
+    </Card>
   )
 }

@@ -1,13 +1,23 @@
 // =============================================================
-// FORMULAIRE DE DEFI
+// FORMULAIRE DE DÉFI
 // =============================================================
-// Utilise pour creer et modifier les defis.
-// Les champs sont documentes avec des placeholders explicites.
+// Utilisé pour créer et modifier les défis.
 // =============================================================
 
 import { useState } from 'react'
 import type { Challenge, ChallengeCategory, ChallengeDifficulty } from '@challenge-hub/shared'
 import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
+import { Label } from './ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
 
 type FormData = {
   title: string
@@ -39,81 +49,89 @@ export function ChallengeForm({ initial, onSubmit, onCancel, isLoading }: Challe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({
-      ...form,
-      timerSeconds: hasTimer ? form.timerSeconds : null,
-    })
+    onSubmit({ ...form, timerSeconds: hasTimer ? form.timerSeconds : null })
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Titre du defi */}
-      <div>
-        <label className="block text-sm text-fortnite-muted mb-1">
+      {/* Titre */}
+      <div className="space-y-1.5">
+        <Label htmlFor="title">
           Titre <span className="text-red-400">*</span>
-        </label>
-        <input
-          className="input"
+        </Label>
+        <Input
+          id="title"
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
-          placeholder="Ex: Victoire Royale, Triple Elimination..."
+          placeholder="Ex: Victoire Royale, Triple Élimination..."
           required
           maxLength={100}
         />
       </div>
 
       {/* Description */}
-      <div>
-        <label className="block text-sm text-fortnite-muted mb-1">
-          Description <span className="text-fortnite-muted/60 text-xs">(optionnel)</span>
-        </label>
-        <textarea
-          className="input resize-none"
+      <div className="space-y-1.5">
+        <Label htmlFor="description">
+          Description{' '}
+          <span className="text-fortnite-muted/60 text-xs">(optionnel)</span>
+        </Label>
+        <Textarea
+          id="description"
           rows={2}
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Regles detaillees du defi..."
+          placeholder="Règles détaillées du défi..."
           maxLength={500}
         />
       </div>
 
-      {/* Categorie + Difficulte sur la meme ligne */}
+      {/* Catégorie + Difficulté */}
       <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm text-fortnite-muted mb-1">Categorie</label>
-          <select
-            className="input"
+        <div className="space-y-1.5">
+          <Label>Catégorie</Label>
+          <Select
             value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value as ChallengeCategory })}
+            onValueChange={(v) => setForm({ ...form, category: v as ChallengeCategory })}
           >
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div>
-          <label className="block text-sm text-fortnite-muted mb-1">Difficulte</label>
-          <select
-            className="input"
+        <div className="space-y-1.5">
+          <Label>Difficulté</Label>
+          <Select
             value={form.difficulty}
-            onChange={(e) => setForm({ ...form, difficulty: e.target.value as ChallengeDifficulty })}
+            onValueChange={(v) => setForm({ ...form, difficulty: v as ChallengeDifficulty })}
           >
-            {Object.entries(DIFFICULTY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DIFFICULTY_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Points */}
-      <div>
-        <label className="block text-sm text-fortnite-muted mb-1">
-          Points attribues a la completion
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="points">Points attribués à la complétion</Label>
+        <Input
+          id="points"
           type="number"
-          className="input"
           value={form.points}
           onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) || 0 })}
           min={0}
@@ -123,30 +141,33 @@ export function ChallengeForm({ initial, onSubmit, onCancel, isLoading }: Challe
       </div>
 
       {/* Timer (optionnel) */}
-      <div>
-        <label className="flex items-center gap-2 cursor-pointer mb-2">
+      <div className="space-y-2">
+        <label className="flex items-center gap-2.5 cursor-pointer">
           <input
             type="checkbox"
             checked={hasTimer}
             onChange={(e) => setHasTimer(e.target.checked)}
-            className="rounded"
+            className="w-4 h-4 rounded border-fortnite-border bg-fortnite-darker accent-fortnite-yellow"
           />
           <span className="text-sm text-fortnite-muted">Ajouter un timer</span>
         </label>
 
         {hasTimer && (
           <div className="flex items-center gap-2">
-            <input
+            <Input
               type="number"
-              className="input w-28"
+              className="w-28"
               value={form.timerSeconds ?? 120}
-              onChange={(e) => setForm({ ...form, timerSeconds: parseInt(e.target.value) || 60 })}
+              onChange={(e) =>
+                setForm({ ...form, timerSeconds: parseInt(e.target.value) || 60 })
+              }
               min={30}
               max={3600}
               step={30}
             />
             <span className="text-sm text-fortnite-muted">
-              secondes ({Math.floor((form.timerSeconds ?? 120) / 60)} min {(form.timerSeconds ?? 120) % 60}s)
+              secondes ({Math.floor((form.timerSeconds ?? 120) / 60)} min{' '}
+              {(form.timerSeconds ?? 120) % 60}s)
             </span>
           </div>
         )}
@@ -154,12 +175,16 @@ export function ChallengeForm({ initial, onSubmit, onCancel, isLoading }: Challe
 
       {/* Boutons */}
       <div className="flex gap-3 pt-2">
-        <button type="submit" disabled={isLoading || !form.title} className="btn-primary flex-1">
-          {isLoading ? 'Enregistrement...' : initial?.id ? 'Modifier' : 'Ajouter le defi'}
-        </button>
-        <button type="button" onClick={onCancel} className="btn-ghost">
+        <Button
+          type="submit"
+          disabled={isLoading || !form.title}
+          className="flex-1"
+        >
+          {isLoading ? 'Enregistrement...' : initial?.id ? 'Modifier' : 'Ajouter le défi'}
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Annuler
-        </button>
+        </Button>
       </div>
     </form>
   )
