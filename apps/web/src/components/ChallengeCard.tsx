@@ -66,8 +66,6 @@ export function PendingChallengeCard({ sc, votes, onActivate, isLoading }: Pendi
             </div>
           )}
 
-          {/* Points */}
-          <div className="text-fortnite-yellow font-bold text-sm shrink-0">{c.points} pts</div>
         </div>
       </CardContent>
     </Card>
@@ -113,9 +111,6 @@ export function ManageChallengeCard({ challenge: c, onEdit, onDelete }: ManageCa
               <div className="text-xs text-fortnite-muted mt-0.5 line-clamp-2">{c.description}</div>
             )}
           </div>
-
-          {/* Points */}
-          <div className="text-fortnite-yellow font-bold shrink-0">{c.points} pts</div>
 
           {/* Actions */}
           <div className="flex gap-1 shrink-0">

@@ -1,12 +1,13 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Gamepad2, Wifi, WifiOff, Twitch } from 'lucide-react'
+import { Gamepad2, Twitch } from 'lucide-react'
 import { Sidebar } from './components/Sidebar'
 import { BottomNav } from './components/BottomNav'
 import { Dashboard } from './pages/Dashboard'
 import { Challenges } from './pages/Challenges'
 import { History } from './pages/History'
 import { Settings } from './pages/Settings'
+import { Login } from './pages/Login'
 import { useWebSocket } from './hooks/useWebSocket'
 import { Toaster } from './components/ui/Toaster'
 import { WSContext } from './lib/context'
@@ -16,23 +17,62 @@ import { cn } from './lib/utils'
 export default function App() {
   const ws = useWebSocket()
 
+  const { data: sessionData, isLoading: isSessionLoading, refetch: refetchSession } = useQuery({
+    queryKey: ['session-status'],
+    queryFn: api.auth.session,
+    staleTime: 60_000,
+    retry: false,
+  })
+
+  const { data: authStatus } = useQuery({
+    queryKey: ['auth-status'],
+    queryFn: api.auth.status,
+    enabled: sessionData?.authenticated === true,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+
+  const isAuthenticated = sessionData?.authenticated === true
+  const twitchConnected = authStatus?.connected ?? false
+
+  if (isSessionLoading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-fortnite-darker">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-fortnite-yellow/15 flex items-center justify-center animate-pulse">
+            <Gamepad2 className="w-6 h-6 text-fortnite-yellow" />
+          </div>
+          <div className="text-fortnite-muted text-sm">Chargement...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Login onAuthenticated={() => refetchSession()} />
+  }
+
   return (
     <WSContext.Provider value={ws}>
       <div className="flex h-full flex-col md:flex-row">
 
-        {/* Sidebar — desktop uniquement */}
-        <Sidebar connected={ws.connected} hasActiveSession={!!ws.appState.session} />
+        <Sidebar
+          connected={ws.connected}
+          hasActiveSession={!!ws.appState.session}
+          twitchConnected={twitchConnected}
+          twitchChannel={authStatus?.channel}
+          twitchAvatar={authStatus?.profileImageUrl}
+        />
 
-        {/* Zone principale */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-
-          {/* Header mobile — caché sur desktop */}
           <MobileHeader
             connected={ws.connected}
             hasActiveSession={!!ws.appState.session}
+            twitchConnected={twitchConnected}
+            twitchAvatar={authStatus?.profileImageUrl}
+            twitchChannel={authStatus?.channel}
           />
 
-          {/* Contenu des pages */}
           <main className="flex-1 overflow-auto pb-20 md:pb-0">
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -44,8 +84,10 @@ export default function App() {
           </main>
         </div>
 
-        {/* Navigation bas — mobile uniquement */}
-        <BottomNav hasActiveSession={!!ws.appState.session} />
+        <BottomNav
+          hasActiveSession={!!ws.appState.session}
+          twitchConnected={twitchConnected}
+        />
       </div>
 
       <Toaster />
@@ -53,57 +95,40 @@ export default function App() {
   )
 }
 
-// --- Header affiché uniquement sur mobile ---
 function MobileHeader({
   connected,
   hasActiveSession,
+  twitchConnected,
+  twitchAvatar,
+  twitchChannel,
 }: {
   connected: boolean
   hasActiveSession: boolean
+  twitchConnected: boolean
+  twitchAvatar?: string | null
+  twitchChannel?: string
 }) {
-  const { data: authStatus } = useQuery({
-    queryKey: ['auth-status'],
-    queryFn: api.auth.status,
-    staleTime: 20_000,
-  })
-
   return (
     <header className="md:hidden flex items-center justify-between px-4 py-3 bg-fortnite-card border-b border-fortnite-border shrink-0">
-      {/* Logo */}
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 rounded-lg bg-fortnite-yellow/15 flex items-center justify-center">
           <Gamepad2 className="w-4 h-4 text-fortnite-yellow" />
         </div>
         <span className="font-bold text-white text-sm">Challenge Hub</span>
-        {hasActiveSession && (
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        )}
+        {hasActiveSession && <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />}
       </div>
 
-      {/* Statuts */}
       <div className="flex items-center gap-2.5">
-        {/* Twitch avatar ou icône */}
-        {authStatus?.connected ? (
-          authStatus.profileImageUrl ? (
-            <img
-              src={authStatus.profileImageUrl}
-              alt={authStatus.channel}
-              className="w-6 h-6 rounded-full border border-purple-500/40"
-            />
+        {twitchConnected ? (
+          twitchAvatar ? (
+            <img src={twitchAvatar} alt={twitchChannel} className="w-6 h-6 rounded-full border border-purple-500/40" />
           ) : (
             <Twitch className="w-4 h-4 text-purple-400" />
           )
         ) : (
           <Twitch className="w-4 h-4 text-fortnite-muted/50" />
         )}
-
-        {/* Point serveur */}
-        <div
-          className={cn(
-            'w-2 h-2 rounded-full',
-            connected ? 'bg-blue-400' : 'bg-red-400 animate-pulse',
-          )}
-        />
+        <div className={cn('w-2 h-2 rounded-full', connected ? 'bg-blue-400' : 'bg-red-400 animate-pulse')} />
       </div>
     </header>
   )

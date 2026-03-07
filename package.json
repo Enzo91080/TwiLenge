@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm run --parallel --filter server --filter web --filter overlay dev",
+    "dev": "concurrently -k -n server,web,overlay -c cyan,yellow,magenta \"pnpm --filter server dev\" \"wait-on http://localhost:3001/health && pnpm --filter web dev\" \"wait-on http://localhost:3001/health && pnpm --filter overlay dev\"",
     "build": "pnpm run --parallel --filter web --filter overlay build && pnpm run --filter server build",
     "start": "pnpm run --filter server start"
   },
@@ -11,5 +11,9 @@
     "apps/*",
     "server",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "wait-on": "^9.0.4"
+  }
 }

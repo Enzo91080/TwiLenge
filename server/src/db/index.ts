@@ -1,300 +1,279 @@
 // =============================================================
-// BASE DE DONNEES SQLITE
+// BASE DE DONNEES MONGODB
 // =============================================================
-// Utilise node:sqlite (integre dans Node.js 22+, zero installation).
-// Les tables sont creees automatiquement au premier demarrage.
-// Le fichier DB est cree dans server/data/challenge-hub.db
+// Utilise le driver officiel MongoDB.
+// URL de connexion : MONGODB_URI dans .env (defaut: localhost)
+// Collections : challenges, sessions, sessionChallenges, settings, counters
 // =============================================================
 
-import { DatabaseSync } from 'node:sqlite'
-import fs from 'fs'
-import path from 'path'
+import { MongoClient, Db } from 'mongodb'
+import { randomBytes } from 'crypto'
 import { config } from '../config.js'
 import type { Challenge, Session, SessionChallenge } from '@challenge-hub/shared'
 
-// S'assurer que le dossier data existe
-const dataDir = path.dirname(config.DB_PATH)
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true })
+// Types des documents MongoDB (avec _id numerique ou string)
+interface ChallengeDoc {
+  _id: number
+  title: string; description: string; category: string; difficulty: string
+  timerSeconds: number | null; sortOrder: number; createdAt: string
 }
+interface SessionDoc {
+  _id: number; startedAt: string; endedAt: string | null; notes: string
+}
+interface SessionChallengeDoc {
+  _id: number; sessionId: number; challengeId: number; status: string
+  activatedAt: string | null; completedAt: string | null
+}
+interface SettingDoc { _id: string; value: string }
+interface CounterDoc { _id: string; seq: number }
+interface AuthSessionDoc { _id: string; login: string; expiresAt: Date }
 
-export const db = new DatabaseSync(config.DB_PATH)
-
-// WAL mode = meilleures performances pour les lectures/ecritures concurrentes
-db.exec('PRAGMA journal_mode = WAL')
-db.exec('PRAGMA foreign_keys = ON')
+let client: MongoClient
+let db: Db
 
 // =============================================================
-// CREATION DES TABLES
+// CONNEXION
 // =============================================================
 
-export function initDB() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS challenges (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      title         TEXT    NOT NULL,
-      description   TEXT    DEFAULT '',
-      category      TEXT    DEFAULT 'custom',
-      difficulty    TEXT    DEFAULT 'medium',
-      points        INTEGER DEFAULT 100,
-      timer_seconds INTEGER,
-      sort_order    INTEGER DEFAULT 0,
-      created_at    TEXT    DEFAULT CURRENT_TIMESTAMP
-    );
+export async function initDB(): Promise<void> {
+  client = new MongoClient(config.MONGODB_URI)
+  await client.connect()
+  db = client.db()
+  console.log('[DB] Connecte a MongoDB.')
 
-    CREATE TABLE IF NOT EXISTS sessions (
-      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      started_at   TEXT    DEFAULT CURRENT_TIMESTAMP,
-      ended_at     TEXT,
-      total_points INTEGER DEFAULT 0,
-      notes        TEXT    DEFAULT ''
-    );
+  // Index de performance
+  await challenges().createIndex({ sortOrder: 1 })
+  await sessionChallenges().createIndex({ sessionId: 1 })
+  // TTL index : supprime automatiquement les sessions expirees
+  await db.collection<AuthSessionDoc>('authSessions').createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0 },
+  )
 
-    CREATE TABLE IF NOT EXISTS session_challenges (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id    INTEGER NOT NULL REFERENCES sessions(id),
-      challenge_id  INTEGER NOT NULL REFERENCES challenges(id),
-      status        TEXT    DEFAULT 'pending',
-      points_earned INTEGER DEFAULT 0,
-      activated_at  TEXT,
-      completed_at  TEXT
-    );
+  // Seed des parametres par defaut + credentials Twitch depuis .env (seulement si absent)
+  await seedDefaultSettings()
 
-    CREATE TABLE IF NOT EXISTS settings (
-      key   TEXT PRIMARY KEY,
-      value TEXT
-    );
-  `)
-
-  const row = db.prepare('SELECT COUNT(*) as n FROM challenges').get() as { n: number }
-  if (row.n === 0) {
-    seedDefaultChallenges()
+  // Seed des defis par defaut si la collection est vide
+  const count = await challenges().countDocuments()
+  if (count === 0) {
+    await seedDefaultChallenges()
   }
 }
 
 // =============================================================
-// DEFIS PAR DEFAUT
+// AUTO-INCREMENT (IDs numeriques comme avec SQLite)
 // =============================================================
 
-function seedDefaultChallenges() {
-  const insert = db.prepare(`
-    INSERT INTO challenges (title, description, category, difficulty, points, timer_seconds, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `)
+function counters() { return db.collection<CounterDoc>('counters') }
+function challenges() { return db.collection<ChallengeDoc>('challenges') }
+function sessions() { return db.collection<SessionDoc>('sessions') }
+function sessionChallenges() { return db.collection<SessionChallengeDoc>('sessionChallenges') }
+function settings() { return db.collection<SettingDoc>('settings') }
 
-  const defaults: [string, string, string, string, number, number | null, number][] = [
-    ['Victoire Royale', 'Gagner une partie', 'placement', 'hard', 500, null, 0],
-    ['Top 3 sans tirer', 'Finir dans le top 3 sans avoir tire un seul coup de feu', 'placement', 'hard', 400, null, 1],
-    ['Sniper only', 'Utiliser uniquement des snipers toute la partie', 'loadout', 'hard', 350, null, 2],
-    ['Triple elim', 'Faire 3 eliminations dans la meme partie', 'elimination', 'medium', 200, null, 3],
-    ['Elim longue distance', 'Eliminer un ennemi a plus de 100m', 'elimination', 'medium', 250, null, 4],
-    ['Outils de base seulement', 'Jouer avec uniquement des armes grises (common)', 'loadout', 'hard', 300, null, 5],
-    ['Farmer 500/500/500', 'Obtenir 500 bois, 500 pierres et 500 metal', 'custom', 'easy', 100, 600, 6],
-    ['Zone seulement', 'Ne jamais sortir de la zone safe durant toute la partie', 'chaos', 'hard', 400, null, 7],
-    ['Top 10 sans construire', 'Finir dans le top 10 sans avoir construit une seule structure', 'placement', 'medium', 250, null, 8],
-    ['Coffre mythique', 'Trouver et utiliser un coffre ou une arme mythique', 'custom', 'easy', 150, null, 9],
-  ]
+async function getNextId(name: string): Promise<number> {
+  const result = await counters().findOneAndUpdate(
+    { _id: name },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: 'after' },
+  )
+  return result!.seq
+}
 
-  for (const args of defaults) {
-    insert.run(...args)
+// =============================================================
+// CONVERSIONS DOCUMENT -> TYPE PARTAGE
+// =============================================================
+
+function docToChallenge(doc: any): Challenge {
+  return {
+    id: doc._id,
+    title: doc.title,
+    description: doc.description ?? '',
+    category: doc.category,
+    difficulty: doc.difficulty,
+    timerSeconds: doc.timerSeconds ?? null,
+    sortOrder: doc.sortOrder ?? 0,
+    createdAt: doc.createdAt,
   }
 }
+
+function docToSession(doc: any): Session {
+  return {
+    id: doc._id,
+    startedAt: doc.startedAt,
+    endedAt: doc.endedAt ?? null,
+    notes: doc.notes ?? '',
+  }
+}
+
+function docToSessionChallenge(scDoc: any): SessionChallenge {
+  return {
+    id: scDoc._id,
+    sessionId: scDoc.sessionId,
+    challengeId: scDoc.challengeId,
+    status: scDoc.status,
+    activatedAt: scDoc.activatedAt ?? null,
+    completedAt: scDoc.completedAt ?? null,
+    challenge: docToChallenge(scDoc.challengeData),
+  }
+}
+
+// Pipeline d'aggregation commun pour joindre les defis
+const sessionChallengesPipeline = [
+  { $lookup: { from: 'challenges', localField: 'challengeId', foreignField: '_id', as: 'challengeData' } },
+  { $unwind: '$challengeData' },
+]
 
 // =============================================================
 // REQUETES CHALLENGES
 // =============================================================
 
-export function getAllChallenges(): Challenge[] {
-  return db.prepare(`
-    SELECT id, title, description, category, difficulty, points,
-           timer_seconds as timerSeconds, sort_order as sortOrder, created_at as createdAt
-    FROM challenges ORDER BY sort_order ASC, id ASC
-  `).all() as unknown as Challenge[]
+export async function getAllChallenges(): Promise<Challenge[]> {
+  const docs = await challenges().find().sort({ sortOrder: 1, _id: 1 }).toArray()
+  return docs.map(docToChallenge)
 }
 
-export function getChallengeById(id: number): Challenge | null {
-  return db.prepare(`
-    SELECT id, title, description, category, difficulty, points,
-           timer_seconds as timerSeconds, sort_order as sortOrder, created_at as createdAt
-    FROM challenges WHERE id = ?
-  `).get(id) as unknown as Challenge | null
+export async function getChallengeById(id: number): Promise<Challenge | null> {
+  const doc = await challenges().findOne({ _id: id })
+  return doc ? docToChallenge(doc) : null
 }
 
-export function createChallenge(data: Omit<Challenge, 'id' | 'createdAt'>): Challenge {
-  const result = db.prepare(`
-    INSERT INTO challenges (title, description, category, difficulty, points, timer_seconds, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(data.title, data.description, data.category, data.difficulty, data.points, data.timerSeconds, data.sortOrder)
-
-  return getChallengeById(Number(result.lastInsertRowid))!
+export async function createChallenge(data: Omit<Challenge, 'id' | 'createdAt'>): Promise<Challenge> {
+  const id = await getNextId('challenges')
+  const doc: ChallengeDoc = {
+    _id: id,
+    title: data.title,
+    description: data.description ?? '',
+    category: data.category,
+    difficulty: data.difficulty,
+    timerSeconds: data.timerSeconds ?? null,
+    sortOrder: data.sortOrder ?? 0,
+    createdAt: new Date().toISOString(),
+  }
+  await challenges().insertOne(doc)
+  return docToChallenge(doc)
 }
 
-export function updateChallenge(id: number, data: Partial<Omit<Challenge, 'id' | 'createdAt'>>): Challenge | null {
-  const current = getChallengeById(id)
+export async function updateChallenge(id: number, data: Partial<Omit<Challenge, 'id' | 'createdAt'>>): Promise<Challenge | null> {
+  const current = await getChallengeById(id)
   if (!current) return null
 
-  db.prepare(`
-    UPDATE challenges
-    SET title = ?, description = ?, category = ?, difficulty = ?,
-        points = ?, timer_seconds = ?, sort_order = ?
-    WHERE id = ?
-  `).run(
-    data.title ?? current.title,
-    data.description ?? current.description,
-    data.category ?? current.category,
-    data.difficulty ?? current.difficulty,
-    data.points ?? current.points,
-    data.timerSeconds !== undefined ? data.timerSeconds : current.timerSeconds,
-    data.sortOrder ?? current.sortOrder,
-    id,
-  )
+  const update: Partial<ChallengeDoc> = {}
+  if (data.title !== undefined) update.title = data.title
+  if (data.description !== undefined) update.description = data.description
+  if (data.category !== undefined) update.category = data.category
+  if (data.difficulty !== undefined) update.difficulty = data.difficulty
+  if (data.timerSeconds !== undefined) update.timerSeconds = data.timerSeconds
+  if (data.sortOrder !== undefined) update.sortOrder = data.sortOrder
 
-  return getChallengeById(id)!
+  await challenges().updateOne({ _id: id }, { $set: update })
+  return getChallengeById(id)
 }
 
-export function deleteChallenge(id: number): boolean {
-  const result = db.prepare('DELETE FROM challenges WHERE id = ?').run(id)
-  return result.changes > 0
+export async function deleteChallenge(id: number): Promise<boolean> {
+  const result = await challenges().deleteOne({ _id: id })
+  return result.deletedCount > 0
 }
 
-export function reorderChallenges(orderedIds: number[]) {
-  const update = db.prepare('UPDATE challenges SET sort_order = ? WHERE id = ?')
-  db.exec('BEGIN')
-  try {
-    orderedIds.forEach((id, index) => update.run(index, id))
-    db.exec('COMMIT')
-  } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
-  }
+export async function reorderChallenges(orderedIds: number[]): Promise<void> {
+  if (orderedIds.length === 0) return
+  const ops = orderedIds.map((id, index) => ({
+    updateOne: { filter: { _id: id }, update: { $set: { sortOrder: index } } },
+  }))
+  await challenges().bulkWrite(ops)
 }
 
-export function resetToDefaultChallenges() {
-  db.prepare('DELETE FROM challenges').run()
-  seedDefaultChallenges()
+export async function resetToDefaultChallenges(): Promise<void> {
+  await challenges().deleteMany({})
+  await counters().deleteOne({ _id: 'challenges' })
+  await seedDefaultChallenges()
 }
 
 // =============================================================
 // REQUETES SESSIONS
 // =============================================================
 
-export function getActiveSession(): Session | null {
-  return db.prepare(`
-    SELECT id, started_at as startedAt, ended_at as endedAt,
-           total_points as totalPoints, notes
-    FROM sessions WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1
-  `).get() as unknown as Session | null
+export async function getActiveSession(): Promise<Session | null> {
+  const doc = await sessions().findOne({ endedAt: null }, { sort: { _id: -1 } })
+  return doc ? docToSession(doc) : null
 }
 
-export function getSessionById(id: number): Session | null {
-  return db.prepare(`
-    SELECT id, started_at as startedAt, ended_at as endedAt,
-           total_points as totalPoints, notes
-    FROM sessions WHERE id = ?
-  `).get(id) as unknown as Session | null
+export async function getSessionById(id: number): Promise<Session | null> {
+  const doc = await sessions().findOne({ _id: id })
+  return doc ? docToSession(doc) : null
 }
 
-export function getAllSessions(): Session[] {
-  return db.prepare(`
-    SELECT id, started_at as startedAt, ended_at as endedAt,
-           total_points as totalPoints, notes
-    FROM sessions ORDER BY id DESC
-  `).all() as unknown as Session[]
+export async function getAllSessions(): Promise<Session[]> {
+  const docs = await sessions().find().sort({ _id: -1 }).toArray()
+  return docs.map(docToSession)
 }
 
-export function createSession(): Session {
-  const result = db.prepare('INSERT INTO sessions DEFAULT VALUES').run()
-  return getSessionById(Number(result.lastInsertRowid))!
+export async function createSession(): Promise<Session> {
+  const id = await getNextId('sessions')
+  const doc: SessionDoc = {
+    _id: id,
+    startedAt: new Date().toISOString(),
+    endedAt: null,
+    notes: '',
+  }
+  await sessions().insertOne(doc)
+  return docToSession(doc)
 }
 
-export function endSession(id: number): Session | null {
-  db.prepare(`UPDATE sessions SET ended_at = CURRENT_TIMESTAMP WHERE id = ?`).run(id)
+export async function endSession(id: number): Promise<Session | null> {
+  await sessions().updateOne({ _id: id }, { $set: { endedAt: new Date().toISOString() } })
   return getSessionById(id)
-}
-
-export function updateSessionPoints(id: number, points: number) {
-  db.prepare('UPDATE sessions SET total_points = ? WHERE id = ?').run(points, id)
 }
 
 // =============================================================
 // REQUETES SESSION CHALLENGES
 // =============================================================
 
-function rowToSessionChallenge(row: any): SessionChallenge {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    challengeId: row.challenge_id,
-    status: row.status,
-    pointsEarned: row.points_earned,
-    activatedAt: row.activated_at,
-    completedAt: row.completed_at,
-    challenge: {
-      id: row.challenge_id,
-      title: row.title,
-      description: row.description,
-      category: row.category,
-      difficulty: row.difficulty,
-      points: row.points,
-      timerSeconds: row.timer_seconds,
-      sortOrder: row.sort_order,
-      createdAt: row.created_at,
-    },
+export async function getSessionChallengeById(id: number): Promise<SessionChallenge | null> {
+  const docs = await sessionChallenges().aggregate([
+    { $match: { _id: id } },
+    ...sessionChallengesPipeline,
+  ]).toArray()
+  return docs[0] ? docToSessionChallenge(docs[0]) : null
+}
+
+export async function getSessionChallenges(sessionId: number): Promise<SessionChallenge[]> {
+  const docs = await sessionChallenges().aggregate([
+    { $match: { sessionId } },
+    { $sort: { _id: 1 } },
+    ...sessionChallengesPipeline,
+  ]).toArray()
+  return docs.map(docToSessionChallenge)
+}
+
+export async function addChallengeToSession(sessionId: number, challengeId: number): Promise<SessionChallenge> {
+  const id = await getNextId('sessionChallenges')
+  const doc: SessionChallengeDoc = {
+    _id: id,
+    sessionId,
+    challengeId,
+    status: 'pending',
+    activatedAt: null,
+    completedAt: null,
   }
+  await sessionChallenges().insertOne(doc)
+  return (await getSessionChallengeById(id))!
 }
 
-export function getSessionChallenges(sessionId: number): SessionChallenge[] {
-  const rows = db.prepare(`
-    SELECT sc.*, c.title, c.description, c.category, c.difficulty,
-           c.points, c.timer_seconds, c.sort_order, c.created_at
-    FROM session_challenges sc
-    JOIN challenges c ON c.id = sc.challenge_id
-    WHERE sc.session_id = ?
-    ORDER BY sc.id ASC
-  `).all(sessionId)
-
-  return rows.map(rowToSessionChallenge)
-}
-
-export function getSessionChallengeById(id: number): SessionChallenge | null {
-  const row = db.prepare(`
-    SELECT sc.*, c.title, c.description, c.category, c.difficulty,
-           c.points, c.timer_seconds, c.sort_order, c.created_at
-    FROM session_challenges sc
-    JOIN challenges c ON c.id = sc.challenge_id
-    WHERE sc.id = ?
-  `).get(id)
-
-  return row ? rowToSessionChallenge(row) : null
-}
-
-export function addChallengeToSession(sessionId: number, challengeId: number): SessionChallenge {
-  const result = db.prepare(`
-    INSERT INTO session_challenges (session_id, challenge_id) VALUES (?, ?)
-  `).run(sessionId, challengeId)
-
-  return getSessionChallengeById(Number(result.lastInsertRowid))!
-}
-
-export function updateSessionChallengeStatus(
+export async function updateSessionChallengeStatus(
   id: number,
   status: 'active' | 'completed' | 'failed' | 'skipped',
-  pointsEarned = 0,
-): SessionChallenge | null {
+): Promise<SessionChallenge | null> {
   if (status === 'active') {
-    db.prepare(`
-      UPDATE session_challenges
-      SET status = 'active', activated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(id)
+    await sessionChallenges().updateOne(
+      { _id: id },
+      { $set: { status: 'active', activatedAt: new Date().toISOString() } },
+    )
   } else {
-    db.prepare(`
-      UPDATE session_challenges
-      SET status = ?, points_earned = ?, completed_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(status, pointsEarned, id)
+    await sessionChallenges().updateOne(
+      { _id: id },
+      { $set: { status, completedAt: new Date().toISOString() } },
+    )
   }
-
   return getSessionChallengeById(id)
 }
 
@@ -302,16 +281,87 @@ export function updateSessionChallengeStatus(
 // REQUETES SETTINGS
 // =============================================================
 
-export function getSetting(key: string): string | null {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
-  return row?.value ?? null
+export async function getSetting(key: string): Promise<string | null> {
+  const doc = await settings().findOne({ _id: key })
+  return doc?.value ?? null
 }
 
-export function setSetting(key: string, value: string) {
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
+export async function setSetting(key: string, value: string): Promise<void> {
+  await settings().updateOne({ _id: key }, { $set: { value } }, { upsert: true })
 }
 
-export function getAllSettings(): Record<string, string> {
-  const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]))
+export async function getAllSettings(): Promise<Record<string, string>> {
+  const docs = await settings().find().toArray()
+  return Object.fromEntries(docs.map((d) => [d._id, d.value]))
+}
+
+// Verifie si la config Twitch est complete (lue depuis la BDD)
+// Verifie si les credentials Twitch (Client ID + Secret) sont presents
+// Le channel est defini automatiquement au premier login OAuth, pas besoin de le verifier ici
+export async function isTwitchConfigured(): Promise<boolean> {
+  const clientId = await getSetting('twitch_client_id')
+  const clientSecret = await getSetting('twitch_client_secret')
+  return !!(clientId && clientSecret)
+}
+
+// =============================================================
+// SESSIONS D'AUTHENTIFICATION DASHBOARD
+// =============================================================
+
+export async function createAuthSession(login: string): Promise<string> {
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 jours
+  await db.collection<AuthSessionDoc>('authSessions').insertOne({ _id: token, login, expiresAt })
+  return token
+}
+
+export async function getAuthSession(token: string): Promise<{ login: string } | null> {
+  const doc = await db.collection<AuthSessionDoc>('authSessions').findOne({
+    _id: token,
+    expiresAt: { $gt: new Date() },
+  })
+  return doc ? { login: doc.login } : null
+}
+
+export async function deleteAuthSession(token: string): Promise<void> {
+  await db.collection<AuthSessionDoc>('authSessions').deleteOne({ _id: token })
+}
+
+// =============================================================
+// SEED PAR DEFAUT
+// =============================================================
+
+async function seedDefaultSettings(): Promise<void> {
+  // $setOnInsert : n'ecrase pas les valeurs existantes
+  const defaults: [string, string][] = [
+    ['bot_prefix', '!'],
+    ['bot_enabled', 'false'],
+    ['channel_points_enabled', 'false'],
+    ['channel_points_reward_name', 'Defi aleatoire'],
+  ]
+  for (const [key, value] of defaults) {
+    await settings().updateOne(
+      { _id: key },
+      { $setOnInsert: { value } },
+      { upsert: true },
+    )
+  }
+}
+
+async function seedDefaultChallenges(): Promise<void> {
+  const defaults: Omit<Challenge, 'id' | 'createdAt'>[] = [
+    { title: 'Victoire Royale', description: 'Gagner une partie', category: 'placement', difficulty: 'hard', timerSeconds: null, sortOrder: 0 },
+    { title: 'Top 3 sans tirer', description: 'Finir dans le top 3 sans avoir tire un seul coup de feu', category: 'placement', difficulty: 'hard', timerSeconds: null, sortOrder: 1 },
+    { title: 'Sniper only', description: 'Utiliser uniquement des snipers toute la partie', category: 'loadout', difficulty: 'hard', timerSeconds: null, sortOrder: 2 },
+    { title: 'Triple elim', description: 'Faire 3 eliminations dans la meme partie', category: 'elimination', difficulty: 'medium', timerSeconds: null, sortOrder: 3 },
+    { title: 'Elim longue distance', description: 'Eliminer un ennemi a plus de 100m', category: 'elimination', difficulty: 'medium', timerSeconds: null, sortOrder: 4 },
+    { title: 'Outils de base seulement', description: 'Jouer avec uniquement des armes grises (common)', category: 'loadout', difficulty: 'hard', timerSeconds: null, sortOrder: 5 },
+    { title: 'Farmer 500/500/500', description: 'Obtenir 500 bois, 500 pierres et 500 metal', category: 'custom', difficulty: 'easy', timerSeconds: 600, sortOrder: 6 },
+    { title: 'Zone seulement', description: 'Ne jamais sortir de la zone safe durant toute la partie', category: 'chaos', difficulty: 'hard', timerSeconds: null, sortOrder: 7 },
+    { title: 'Top 10 sans construire', description: 'Finir dans le top 10 sans avoir construit une seule structure', category: 'placement', difficulty: 'medium', timerSeconds: null, sortOrder: 8 },
+    { title: 'Coffre mythique', description: 'Trouver et utiliser un coffre ou une arme mythique', category: 'custom', difficulty: 'easy', timerSeconds: null, sortOrder: 9 },
+  ]
+  for (const data of defaults) {
+    await createChallenge(data)
+  }
 }

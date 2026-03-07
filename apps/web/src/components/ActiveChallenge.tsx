@@ -71,11 +71,6 @@ export function ActiveChallenge() {
             )}
           </div>
 
-          {/* Points */}
-          <div className="text-right shrink-0 bg-fortnite-yellow/10 rounded-xl px-3 py-2 border border-fortnite-yellow/20">
-            <div className="text-2xl md:text-3xl font-bold text-fortnite-yellow leading-none">{c.points}</div>
-            <div className="text-xs text-fortnite-muted mt-0.5">pts</div>
-          </div>
         </div>
 
         {/* Compte à rebours */}

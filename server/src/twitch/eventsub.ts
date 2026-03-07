@@ -4,41 +4,41 @@
 // Ecoute les rachats de Channel Points en temps reel.
 // Quand un viewer rachete la recompense configuree,
 // l'app active automatiquement un defi aleatoire.
-//
-// Utilise EventSub WebSocket (fonctionne en local sans tunnel).
 // =============================================================
 
 import { ApiClient } from '@twurple/api'
 import { RefreshingAuthProvider } from '@twurple/auth'
 import { EventSubWsListener } from '@twurple/eventsub-ws'
-import { config } from '../config.js'
-import { getSetting, setSetting } from '../db/index.js'
+import { getSetting, setSetting, updateSessionChallengeStatus } from '../db/index.js'
 import { state } from '../state.js'
 import { broadcastState, broadcast } from '../ws/manager.js'
-import { updateSessionChallengeStatus, updateSessionPoints } from '../db/index.js'
 import { stopTimer } from '../state.js'
 
 let listener: EventSubWsListener | null = null
 
 export async function startEventSub() {
-  if (!config.CHANNEL_POINTS_ENABLED || !config.TWITCH_CLIENT_ID) {
+  const enabled = (await getSetting('channel_points_enabled')) === 'true'
+  const clientId = await getSetting('twitch_client_id')
+  const clientSecret = await getSetting('twitch_client_secret')
+  const channel = await getSetting('twitch_channel')
+
+  if (!enabled || !clientId || !clientSecret || !channel) {
     console.log('[EventSub] Channel Points desactives ou non configures.')
     return
   }
 
-  const accessToken = getSetting('twitch_access_token')
-  const refreshToken = getSetting('twitch_refresh_token')
+  const accessToken = await getSetting('twitch_access_token')
+  const refreshToken = await getSetting('twitch_refresh_token')
 
   if (!accessToken || !refreshToken) {
-    console.log('[EventSub] Tokens Twitch manquants. Va sur /auth/twitch pour autoriser.')
+    console.log('[EventSub] Tokens Twitch manquants.')
     return
   }
 
+  const rewardName = (await getSetting('channel_points_reward_name')) ?? 'Defi aleatoire'
+
   try {
-    const authProvider = new RefreshingAuthProvider({
-      clientId: config.TWITCH_CLIENT_ID,
-      clientSecret: config.TWITCH_CLIENT_SECRET,
-    })
+    const authProvider = new RefreshingAuthProvider({ clientId, clientSecret })
 
     await authProvider.addUserForToken({
       accessToken,
@@ -58,23 +58,17 @@ export async function startEventSub() {
 
     await listener.start()
 
-    // Recuperer l'ID de l'utilisateur Twitch depuis l'API
-    const user = await apiClient.users.getUserByName(config.TWITCH_CHANNEL)
+    const user = await apiClient.users.getUserByName(channel)
     if (!user) {
-      console.error(`[EventSub] Utilisateur Twitch "${config.TWITCH_CHANNEL}" introuvable.`)
+      console.error(`[EventSub] Utilisateur Twitch "${channel}" introuvable.`)
       return
     }
 
-    // S'abonner aux rachats de Channel Points
-    listener.onChannelRedemptionAdd(user, (event) => {
+    listener.onChannelRedemptionAdd(user, async (event) => {
       console.log(`[EventSub] Rachat : "${event.rewardTitle}" par ${event.userDisplayName}`)
 
-      // Verifier si c'est la bonne recompense
-      if (event.rewardTitle.toLowerCase() !== config.CHANNEL_POINTS_REWARD_NAME.toLowerCase()) {
-        return
-      }
+      if (event.rewardTitle.toLowerCase() !== rewardName.toLowerCase()) return
 
-      // Activer un defi aleatoire si une session est en cours
       if (!state.session) {
         console.log('[EventSub] Rachat ignore : pas de session en cours.')
         return
@@ -86,17 +80,15 @@ export async function startEventSub() {
         return
       }
 
-      // Si un defi est deja actif, le passer
       if (state.activeChallenge) {
-        updateSessionChallengeStatus(state.activeChallenge.id, 'skipped')
+        await updateSessionChallengeStatus(state.activeChallenge.id, 'skipped')
         state.skippedCount++
         stopTimer()
         state.timerSecondsLeft = null
       }
 
-      // Activer le defi aleatoire
       const random = pending[Math.floor(Math.random() * pending.length)]
-      const activated = updateSessionChallengeStatus(random.id, 'active')!
+      const activated = (await updateSessionChallengeStatus(random.id, 'active'))!
       state.activeChallenge = activated
       state.pendingChallenges = state.pendingChallenges.filter((sc) => sc.id !== random.id)
       state.votes = {}
@@ -107,7 +99,7 @@ export async function startEventSub() {
       console.log(`[EventSub] Defi active par ${event.userDisplayName}: ${activated.challenge.title}`)
     })
 
-    console.log(`[EventSub] En ecoute des Channel Points de ${config.TWITCH_CHANNEL}`)
+    console.log(`[EventSub] En ecoute des Channel Points de ${channel}`)
 
   } catch (err) {
     console.error('[EventSub] Erreur:', err)

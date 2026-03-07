@@ -27,8 +27,6 @@ export interface Challenge {
   description: string
   category: ChallengeCategory
   difficulty: ChallengeDifficulty
-  // Points accordes quand le defi est complete
-  points: number
   // Duree du timer en secondes (null = pas de timer)
   timerSeconds: number | null
   // Ordre d'affichage dans la liste
@@ -41,7 +39,6 @@ export interface Session {
   id: number
   startedAt: string
   endedAt: string | null
-  totalPoints: number
   notes: string
 }
 
@@ -51,7 +48,6 @@ export interface SessionChallenge {
   sessionId: number
   challengeId: number
   status: ChallengeStatus
-  pointsEarned: number
   activatedAt: string | null
   completedAt: string | null
   // Donnees du defi source (joints depuis la table challenges)

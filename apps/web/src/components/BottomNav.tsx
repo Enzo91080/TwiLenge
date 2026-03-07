@@ -6,28 +6,25 @@
 // =============================================================
 
 import { NavLink } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { LayoutDashboard, List, History, Settings } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { api } from '../lib/api'
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/challenges', label: 'Défis', icon: List },
-  { to: '/history', label: 'Historique', icon: History },
-  { to: '/settings', label: 'Réglages', icon: Settings },
+const allNavItems = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, requiresAuth: true },
+  { to: '/challenges', label: 'Défis', icon: List, requiresAuth: true },
+  { to: '/history', label: 'Historique', icon: History, requiresAuth: true },
+  { to: '/settings', label: 'Réglages', icon: Settings, requiresAuth: false },
 ]
 
 interface BottomNavProps {
   hasActiveSession: boolean
+  twitchConnected: boolean
 }
 
-export function BottomNav({ hasActiveSession }: BottomNavProps) {
-  const { data: authStatus } = useQuery({
-    queryKey: ['auth-status'],
-    queryFn: api.auth.status,
-    staleTime: 20_000,
-  })
+export function BottomNav({ hasActiveSession, twitchConnected }: BottomNavProps) {
+  const navItems = twitchConnected
+    ? allNavItems
+    : allNavItems.filter((item) => !item.requiresAuth)
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-fortnite-card/95 backdrop-blur border-t border-fortnite-border safe-area-pb">
@@ -40,9 +37,7 @@ export function BottomNav({ hasActiveSession }: BottomNavProps) {
             className={({ isActive }) =>
               cn(
                 'flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-xs transition-colors relative',
-                isActive
-                  ? 'text-fortnite-yellow'
-                  : 'text-fortnite-muted',
+                isActive ? 'text-fortnite-yellow' : 'text-fortnite-muted',
               )
             }
           >
@@ -59,8 +54,8 @@ export function BottomNav({ hasActiveSession }: BottomNavProps) {
                   {to === '/' && hasActiveSession && (
                     <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-green-400 animate-pulse border border-fortnite-card" />
                   )}
-                  {/* Badge Twitch non connecté sur Réglages */}
-                  {to === '/settings' && !authStatus?.connected && (
+                  {/* Badge connexion requise sur Réglages */}
+                  {to === '/settings' && !twitchConnected && (
                     <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-400 border border-fortnite-card" />
                   )}
                 </div>

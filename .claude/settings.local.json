@@ -14,7 +14,14 @@
       "Bash(cmd:*)",
       "Bash(pnpm:*)",
       "Bash(cmd.exe:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(xargs ls:*)",
+      "Bash(ls:*)",
+      "Bash(docker compose:*)",
+      "Bash(tasklist:*)",
+      "Bash(timeout 15 npx tsx:*)",
+      "Bash(grep:*)",
+      "Bash(xargs -I{} powershell -Command \"Stop-Process -Id {} -Force -ErrorAction SilentlyContinue\")"
     ]
   }
 }

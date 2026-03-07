@@ -108,18 +108,8 @@ export function ChallengeDisplay({ challenge: c, timerSecondsLeft, theme }: Chal
           </div>
         )}
 
-        {/* Footer : points + timer */}
-        <div className="flex items-center justify-between">
-          {/* Points */}
-          <div>
-            <span className="text-2xl font-black" style={{ color: '#F0C540' }}>
-              {c.points}
-            </span>
-            <span className="text-sm ml-1" style={{ color: isDark ? '#8B949E' : '#6B7280' }}>
-              pts
-            </span>
-          </div>
-
+        {/* Footer : timer */}
+        <div className="flex items-center justify-end">
           {/* Timer en cours */}
           {timerSecondsLeft !== null && (
             <div

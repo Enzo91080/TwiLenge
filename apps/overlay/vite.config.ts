@@ -1,9 +1,16 @@
-import { defineConfig } from 'vite'
+import { defineConfig, createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const logger = createLogger()
+const warn = logger.warn.bind(logger)
+const error = logger.error.bind(logger)
+const ignore = (msg: string) => ['ECONNABORTED', 'ECONNREFUSED', 'ECONNRESET'].some(e => msg.includes(e))
+logger.warn  = (msg, opts) => { if (!ignore(msg)) warn(msg, opts) }
+logger.error = (msg, opts) => { if (!ignore(msg)) error(msg, opts) }
+
 export default defineConfig({
+  customLogger: logger,
   plugins: [react()],
-  // En prod, l'overlay est accessible a /overlay sur le meme serveur
   base: '/overlay/',
   server: {
     port: 5174,

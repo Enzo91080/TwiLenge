@@ -5,7 +5,6 @@
 // =============================================================
 
 import { NavLink } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
   List,
@@ -15,37 +14,25 @@ import {
   WifiOff,
   Gamepad2,
   Twitch,
-  AlertCircle,
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { api } from '../lib/api'
 
 interface SidebarProps {
   connected: boolean
   hasActiveSession: boolean
+  twitchConnected: boolean
+  twitchChannel?: string
+  twitchAvatar?: string | null
 }
 
-const navItems = [
+const mainNavItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/challenges', label: 'Défis', icon: List },
   { to: '/history', label: 'Historique', icon: History },
-  { to: '/settings', label: 'Paramètres', icon: Settings },
 ]
 
-export function Sidebar({ connected, hasActiveSession }: SidebarProps) {
-  const { data: authStatus } = useQuery({
-    queryKey: ['auth-status'],
-    queryFn: api.auth.status,
-    refetchInterval: 30_000,
-    staleTime: 20_000,
-  })
-
-  const twitchConnected = authStatus?.connected ?? false
-  const twitchChannel = authStatus?.channel
-  const twitchAvatar = authStatus?.profileImageUrl
-
+export function Sidebar({ connected, hasActiveSession, twitchConnected, twitchChannel, twitchAvatar }: SidebarProps) {
   return (
-    // hidden sur mobile, flex sur desktop
     <aside className="hidden md:flex w-56 flex-col shrink-0 bg-gradient-to-b from-fortnite-card to-fortnite-darker border-r border-fortnite-border">
 
       {/* Logo */}
@@ -63,28 +50,63 @@ export function Sidebar({ connected, hasActiveSession }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-0.5">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group',
-                isActive
-                  ? 'bg-fortnite-yellow/10 text-fortnite-yellow font-semibold shadow-sm ring-1 ring-fortnite-yellow/15'
-                  : 'text-fortnite-muted hover:text-white hover:bg-white/5',
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-110')} />
-                {label}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {/* Onglets principaux — visibles uniquement si Twitch connecté */}
+        {twitchConnected ? (
+          mainNavItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group',
+                  isActive
+                    ? 'bg-fortnite-yellow/10 text-fortnite-yellow font-semibold shadow-sm ring-1 ring-fortnite-yellow/15'
+                    : 'text-fortnite-muted hover:text-white hover:bg-white/5',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-110')} />
+                  {label}
+                </>
+              )}
+            </NavLink>
+          ))
+        ) : (
+          /* Invitation à se connecter quand Twitch n'est pas lié */
+          <div className="mx-1 mt-1 p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
+            <Twitch className="w-5 h-5 text-purple-400 mx-auto mb-2" />
+            <p className="text-xs text-purple-300/80 leading-snug">
+              Connecte ton compte Twitch pour accéder à toutes les fonctionnalités
+            </p>
+          </div>
+        )}
+
+        {/* Paramètres — toujours visible */}
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 group',
+              isActive
+                ? 'bg-fortnite-yellow/10 text-fortnite-yellow font-semibold shadow-sm ring-1 ring-fortnite-yellow/15'
+                : 'text-fortnite-muted hover:text-white hover:bg-white/5',
+            )
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <Settings className={cn('w-4 h-4 shrink-0 transition-transform', isActive ? '' : 'group-hover:scale-110')} />
+              Paramètres
+              {/* Point rouge si Twitch non connecté */}
+              {!twitchConnected && (
+                <div className="ml-auto w-2 h-2 rounded-full bg-red-400 shrink-0" />
+              )}
+            </>
+          )}
+        </NavLink>
       </nav>
 
       {/* Statuts */}
@@ -105,7 +127,6 @@ export function Sidebar({ connected, hasActiveSession }: SidebarProps) {
               ? 'bg-purple-500/10 border-purple-500/20'
               : 'bg-fortnite-darker border-fortnite-border',
           )}
-          title={twitchConnected ? `Connecté : @${twitchChannel}` : 'Twitch non connecté'}
         >
           {twitchConnected ? (
             twitchAvatar ? (
@@ -114,10 +135,10 @@ export function Sidebar({ connected, hasActiveSession }: SidebarProps) {
               <Twitch className="w-3.5 h-3.5 text-purple-400 shrink-0" />
             )
           ) : (
-            <AlertCircle className="w-3.5 h-3.5 text-fortnite-muted/60 shrink-0" />
+            <Twitch className="w-3.5 h-3.5 text-fortnite-muted/60 shrink-0" />
           )}
           <span className={cn('text-xs font-medium truncate', twitchConnected ? 'text-purple-300' : 'text-fortnite-muted/60')}>
-            {twitchConnected ? `@${twitchChannel}` : 'Twitch non connecté'}
+            {twitchConnected ? `@${twitchChannel}` : 'Non connecté'}
           </span>
         </div>
 

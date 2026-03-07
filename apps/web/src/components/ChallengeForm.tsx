@@ -24,7 +24,6 @@ type FormData = {
   description: string
   category: ChallengeCategory
   difficulty: ChallengeDifficulty
-  points: number
   timerSeconds: number | null
 }
 
@@ -41,7 +40,6 @@ export function ChallengeForm({ initial, onSubmit, onCancel, isLoading }: Challe
     description: initial?.description ?? '',
     category: initial?.category ?? 'custom',
     difficulty: initial?.difficulty ?? 'medium',
-    points: initial?.points ?? 100,
     timerSeconds: initial?.timerSeconds ?? null,
   })
 
@@ -124,20 +122,6 @@ export function ChallengeForm({ initial, onSubmit, onCancel, isLoading }: Challe
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      {/* Points */}
-      <div className="space-y-1.5">
-        <Label htmlFor="points">Points attribués à la complétion</Label>
-        <Input
-          id="points"
-          type="number"
-          value={form.points}
-          onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) || 0 })}
-          min={0}
-          max={9999}
-          step={50}
-        />
       </div>
 
       {/* Timer (optionnel) */}

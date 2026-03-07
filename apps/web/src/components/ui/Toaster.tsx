@@ -32,7 +32,7 @@ export function Toaster() {
     if (!lastEvent) return
     switch (lastEvent.type) {
       case 'CHALLENGE_COMPLETED':
-        addToast(`Défi complété ! +${lastEvent.data.pointsEarned} pts`, 'success')
+        addToast('Défi complété !', 'success')
         break
       case 'CHALLENGE_FAILED':
         addToast('Défi échoué !', 'error')

@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Square, Shuffle, Trophy, Target, XCircle, SkipForward } from 'lucide-react'
+import { Play, Square, Shuffle, Target, XCircle, SkipForward } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAppState } from '../lib/context'
 import { ActiveChallenge } from '../components/ActiveChallenge'
@@ -30,8 +30,6 @@ export function Dashboard() {
     onSuccess,
   })
 
-  const totalPoints = session?.totalPoints ?? 0
-
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
 
@@ -40,7 +38,7 @@ export function Dashboard() {
         open={showEndConfirm}
         onOpenChange={setShowEndConfirm}
         title="Terminer la session ?"
-        description={`Le score final (${totalPoints} pts) sera sauvegardé dans l'historique. Cette action est irréversible.`}
+        description="Les résultats seront sauvegardés dans l'historique. Cette action est irréversible."
         confirmLabel="Terminer la session"
         variant="destructive"
         onConfirm={() => endMut.mutate()}
@@ -102,9 +100,7 @@ export function Dashboard() {
       {session && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-            <StatCard icon={<Trophy className="w-5 h-5" />} label="Points" value={totalPoints}
-              colorClass="text-fortnite-yellow" bgClass="bg-fortnite-yellow/5 border-fortnite-yellow/20" />
+          <div className="grid grid-cols-3 gap-2 md:gap-3">
             <StatCard icon={<Target className="w-5 h-5" />} label="Complétés" value={completedCount}
               colorClass="text-green-400" bgClass="bg-green-500/5 border-green-500/20" />
             <StatCard icon={<XCircle className="w-5 h-5" />} label="Échoués" value={failedCount}
@@ -148,7 +144,6 @@ export function Dashboard() {
               <CardContent className="py-10">
                 <div className="text-4xl mb-3">🏆</div>
                 <div className="text-white font-bold text-lg">Tous les défis sont terminés !</div>
-                <div className="text-fortnite-yellow font-semibold mt-1">{totalPoints} points</div>
               </CardContent>
             </Card>
           )}

@@ -3,7 +3,7 @@
 // =============================================================
 
 import { useQuery } from '@tanstack/react-query'
-import { Trophy, CheckCircle, XCircle, SkipForward, ChevronDown, ChevronRight } from 'lucide-react'
+import { CheckCircle, XCircle, SkipForward, ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../lib/api'
 import { formatDate, statusColor, cn } from '../lib/utils'
@@ -111,10 +111,6 @@ function SessionRow({
               <SkipForward className="w-3.5 h-3.5" />
               <span className="font-medium">{skipped.length}</span>
             </span>
-            <span className="flex items-center gap-1.5 text-fortnite-yellow font-bold">
-              <Trophy className="w-3.5 h-3.5" />
-              {session.totalPoints}
-            </span>
           </div>
         </button>
 
@@ -136,9 +132,6 @@ function SessionRow({
                   <span className={cn('badge text-xs', statusColor(sc.status))}>
                     {STATUS_LABELS[sc.status]}
                   </span>
-                  {sc.pointsEarned > 0 && (
-                    <span className="text-fortnite-yellow font-medium text-xs">+{sc.pointsEarned}</span>
-                  )}
                 </div>
               </div>
             ))}
