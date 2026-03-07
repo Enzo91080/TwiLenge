@@ -3,7 +3,7 @@
 // =============================================================
 
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, XCircle, SkipForward, ChevronDown, ChevronRight } from 'lucide-react'
+import { CheckCircle, XCircle, SkipForward, ChevronDown, ChevronRight, BarChart3 } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../lib/api'
 import { formatDate, statusColor, cn } from '../lib/utils'
@@ -36,7 +36,9 @@ export function History() {
       ) : ended.length === 0 ? (
         <Card className="text-center border-dashed">
           <CardContent className="py-14">
-            <div className="text-4xl mb-3">📊</div>
+            <div className="w-12 h-12 rounded-xl bg-fortnite-border/30 flex items-center justify-center mx-auto mb-3">
+              <BarChart3 className="w-6 h-6 text-fortnite-muted/50" />
+            </div>
             <div className="text-white font-medium">Aucune session terminée</div>
             <div className="text-fortnite-muted text-sm mt-1 max-w-xs mx-auto">
               Lance une session depuis le Dashboard et termine-la pour voir l'historique.
@@ -111,6 +113,12 @@ function SessionRow({
               <SkipForward className="w-3.5 h-3.5" />
               <span className="font-medium">{skipped.length}</span>
             </span>
+            {/* Taux de complétion */}
+            {(completed.length + failed.length + skipped.length) > 0 && (
+              <span className="hidden sm:flex items-center gap-1 pl-1 border-l border-fortnite-border text-xs font-semibold text-white tabular-nums">
+                {Math.round(completed.length / (completed.length + failed.length + skipped.length) * 100)}%
+              </span>
+            )}
           </div>
         </button>
 

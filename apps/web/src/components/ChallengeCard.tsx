@@ -8,7 +8,7 @@
 import { Timer, Users, Pencil, Trash2 } from 'lucide-react'
 import { cn, difficultyColor, categoryColor, formatTime } from '../lib/utils'
 import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
-import type { Challenge, SessionChallenge } from '@challenge-hub/shared'
+import type { Challenge, SessionChallenge, ChallengeDifficulty } from '@challenge-hub/shared'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
@@ -20,21 +20,27 @@ interface PendingCardProps {
   votes: Record<number, number>
   onActivate: (id: number) => void
   isLoading: boolean
+  position?: number
 }
 
-export function PendingChallengeCard({ sc, votes, onActivate, isLoading }: PendingCardProps) {
+export function PendingChallengeCard({ sc, votes, onActivate, isLoading, position }: PendingCardProps) {
   const c = sc.challenge
   const voteCount = votes[sc.id] ?? 0
 
   return (
     <Card
-      className={cn(
-        'cursor-pointer hover:border-fortnite-yellow/30 hover:bg-fortnite-yellow/5 transition-all duration-150 group',
-      )}
+      className="cursor-pointer hover:border-fortnite-yellow/30 hover:bg-fortnite-yellow/5 transition-all duration-150 group"
       onClick={() => !isLoading && onActivate(sc.id)}
     >
       <CardContent className="p-3">
         <div className="flex items-center gap-3">
+          {/* Numéro de position */}
+          {position !== undefined && (
+            <div className="shrink-0 w-6 h-6 rounded-full bg-fortnite-darker border border-fortnite-border text-fortnite-muted/60 text-xs font-bold flex items-center justify-center tabular-nums">
+              {position}
+            </div>
+          )}
+
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
@@ -52,7 +58,7 @@ export function PendingChallengeCard({ sc, votes, onActivate, isLoading }: Pendi
 
           {/* Votes du chat */}
           {voteCount > 0 && (
-            <div className="flex items-center gap-1 text-purple-400">
+            <div className="flex items-center gap-1 text-purple-400 shrink-0">
               <Users className="w-3.5 h-3.5" />
               <span className="text-xs font-bold">{voteCount}</span>
             </div>
@@ -65,7 +71,6 @@ export function PendingChallengeCard({ sc, votes, onActivate, isLoading }: Pendi
               <span className="text-xs">{formatTime(c.timerSeconds)}</span>
             </div>
           )}
-
         </div>
       </CardContent>
     </Card>
@@ -73,6 +78,12 @@ export function PendingChallengeCard({ sc, votes, onActivate, isLoading }: Pendi
 }
 
 // --- CARTE DANS LA PAGE DE GESTION ---
+
+const difficultyBorder: Record<ChallengeDifficulty, string> = {
+  easy: 'border-l-green-400',
+  medium: 'border-l-yellow-400',
+  hard: 'border-l-red-400',
+}
 
 interface ManageCardProps {
   challenge: Challenge
@@ -82,7 +93,10 @@ interface ManageCardProps {
 
 export function ManageChallengeCard({ challenge: c, onEdit, onDelete }: ManageCardProps) {
   return (
-    <Card className="group hover:border-fortnite-border/80 transition-colors">
+    <Card className={cn(
+      'group hover:border-fortnite-border/80 transition-colors border-l-2',
+      difficultyBorder[c.difficulty],
+    )}>
       <CardContent className="p-3">
         <div className="flex items-start gap-3">
           {/* Poignée de drag (visuelle) */}

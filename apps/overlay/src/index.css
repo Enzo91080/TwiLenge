@@ -10,8 +10,18 @@ html, body, #root {
   overflow: hidden;
 }
 
-/* Police systeme propre */
 * {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+
+/* Pulsation du point "EN COURS" */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px #4ade80, 0 0 8px #4ade8060; }
+  50%       { box-shadow: 0 0 8px #4ade80, 0 0 16px #4ade8080; }
+}
+
+.dot-pulse {
+  animation: glow-pulse 1.8s ease-in-out infinite;
 }

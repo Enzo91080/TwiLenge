@@ -3,42 +3,35 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      colors: {
-        fortnite: {
-          yellow: '#F0C540',
-          blue: '#1565C0',
-          dark: '#0D1117',
-          card: 'rgba(13, 17, 23, 0.92)',
-        },
-      },
       keyframes: {
         'pop-in': {
-          '0%': { opacity: '0', transform: 'scale(0.8) translateY(10px)' },
+          '0%':   { opacity: '0', transform: 'scale(0.88) translateY(-6px)' },
+          '65%':  { opacity: '1', transform: 'scale(1.02) translateY(0)' },
           '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
         },
-        'pop-out': {
-          '0%': { opacity: '1', transform: 'scale(1)' },
-          '100%': { opacity: '0', transform: 'scale(0.8)' },
+        'result-in': {
+          '0%':   { opacity: '0', transform: 'scale(1.18)' },
+          '40%':  { opacity: '1', transform: 'scale(0.96)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
-        'flash-green': {
-          '0%, 100%': { borderColor: 'transparent' },
-          '50%': { borderColor: '#22C55E' },
-        },
-        'flash-red': {
-          '0%, 100%': { borderColor: 'transparent' },
-          '50%': { borderColor: '#EF4444' },
+        'result-out': {
+          '0%':   { opacity: '1', transform: 'scale(1)' },
+          '100%': { opacity: '0', transform: 'scale(0.88)' },
         },
         'timer-pulse': {
           '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.5' },
+          '50%':      { opacity: '0.4' },
+        },
+        'bar-tick': {
+          '0%':   { transform: 'scaleX(1.01)' },
+          '100%': { transform: 'scaleX(1)' },
         },
       },
       animation: {
-        'pop-in': 'pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        'pop-out': 'pop-out 0.3s ease-in forwards',
-        'flash-green': 'flash-green 0.5s ease 3',
-        'flash-red': 'flash-red 0.5s ease 3',
-        'timer-pulse': 'timer-pulse 1s ease-in-out infinite',
+        'pop-in':      'pop-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'result-in':   'result-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'result-out':  'result-out 0.3s ease-in forwards',
+        'timer-pulse': 'timer-pulse 0.8s ease-in-out infinite',
       },
     },
   },

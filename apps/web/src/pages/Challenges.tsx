@@ -4,7 +4,7 @@
 
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, RotateCcw, Download, Upload } from 'lucide-react'
+import { Plus, RotateCcw, Download, Upload, Loader2, List } from 'lucide-react'
 import { api } from '../lib/api'
 import { ManageChallengeCard } from '../components/ChallengeCard'
 import { ChallengeForm } from '../components/ChallengeForm'
@@ -156,14 +156,16 @@ export function Challenges() {
 
       {/* Liste */}
       {isLoading ? (
-        <div className="text-center text-fortnite-muted py-16">
-          <div className="text-3xl mb-3 animate-pulse">⚙️</div>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-fortnite-muted">
+          <Loader2 className="w-7 h-7 animate-spin opacity-40" />
           Chargement...
         </div>
       ) : challenges.length === 0 ? (
         <Card className="text-center border-dashed">
           <CardContent className="py-14">
-            <div className="text-4xl mb-3">📋</div>
+            <div className="w-12 h-12 rounded-xl bg-fortnite-border/30 flex items-center justify-center mx-auto mb-3">
+              <List className="w-6 h-6 text-fortnite-muted/50" />
+            </div>
             <div className="text-white font-medium">Aucun défi configuré</div>
             <div className="text-fortnite-muted text-sm mt-1">Clique sur "Nouveau" pour en ajouter un.</div>
             <Button className="mt-5" onClick={() => { setEditingChallenge(null); setShowForm(true) }}>

@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Square, Shuffle, Target, XCircle, SkipForward } from 'lucide-react'
+import { Play, Square, Shuffle, Target, XCircle, SkipForward, Gamepad2, Trophy } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAppState } from '../lib/context'
 import { ActiveChallenge } from '../components/ActiveChallenge'
@@ -12,6 +12,7 @@ import { PendingChallengeCard } from '../components/ChallengeCard'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { cn } from '../lib/utils'
 
 export function Dashboard() {
   const { appState } = useAppState()
@@ -83,7 +84,9 @@ export function Dashboard() {
       {!session && (
         <Card className="text-center border-fortnite-yellow/10 bg-gradient-to-b from-fortnite-card to-fortnite-darker">
           <CardContent className="py-12 md:py-16">
-            <div className="text-5xl md:text-6xl mb-4">🎮</div>
+            <div className="w-16 h-16 rounded-2xl bg-fortnite-yellow/10 flex items-center justify-center mx-auto mb-4">
+              <Gamepad2 className="w-8 h-8 text-fortnite-yellow" />
+            </div>
             <h2 className="text-xl font-bold text-white mb-2">Prêt à streamer ?</h2>
             <p className="text-fortnite-muted text-sm max-w-sm mx-auto leading-relaxed">
               Lance une session pour commencer les défis. Tous tes défis configurés seront chargés automatiquement.
@@ -101,11 +104,11 @@ export function Dashboard() {
         <>
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 md:gap-3">
-            <StatCard icon={<Target className="w-5 h-5" />} label="Complétés" value={completedCount}
+            <StatCard icon={<Target className="w-4 h-4" />} label="Complétés" value={completedCount}
               colorClass="text-green-400" bgClass="bg-green-500/5 border-green-500/20" />
-            <StatCard icon={<XCircle className="w-5 h-5" />} label="Échoués" value={failedCount}
+            <StatCard icon={<XCircle className="w-4 h-4" />} label="Échoués" value={failedCount}
               colorClass="text-red-400" bgClass="bg-red-500/5 border-red-500/20" />
-            <StatCard icon={<SkipForward className="w-5 h-5" />} label="Passés" value={skippedCount}
+            <StatCard icon={<SkipForward className="w-4 h-4" />} label="Passés" value={skippedCount}
               colorClass="text-yellow-400" bgClass="bg-yellow-500/5 border-yellow-500/20" />
           </div>
 
@@ -124,12 +127,13 @@ export function Dashboard() {
                 <h2 className="text-xs font-semibold text-fortnite-muted uppercase tracking-widest">
                   En attente ({pendingChallenges.length})
                 </h2>
-                <span className="text-xs text-fortnite-muted/60 hidden sm:block">Appuie pour activer</span>
+                <span className="text-xs text-fortnite-muted/50 hidden sm:block">Clic pour activer</span>
               </div>
               <div className="space-y-2">
-                {pendingChallenges.map((sc) => (
+                {pendingChallenges.map((sc, index) => (
                   <PendingChallengeCard
                     key={sc.id} sc={sc} votes={votes}
+                    position={index + 1}
                     onActivate={(id) => activateMut.mutate(id)}
                     isLoading={activateMut.isPending}
                   />
@@ -142,8 +146,11 @@ export function Dashboard() {
           {pendingChallenges.length === 0 && !activeChallenge && (
             <Card className="text-center border-dashed border-fortnite-yellow/20">
               <CardContent className="py-10">
-                <div className="text-4xl mb-3">🏆</div>
+                <div className="w-12 h-12 rounded-xl bg-fortnite-yellow/10 flex items-center justify-center mx-auto mb-3">
+                  <Trophy className="w-6 h-6 text-fortnite-yellow" />
+                </div>
                 <div className="text-white font-bold text-lg">Tous les défis sont terminés !</div>
+                <p className="text-fortnite-muted text-sm mt-1">Tu peux terminer la session ou en relancer une nouvelle.</p>
               </CardContent>
             </Card>
           )}
@@ -158,11 +165,11 @@ function StatCard({ icon, label, value, colorClass, bgClass }: {
   colorClass: string; bgClass: string
 }) {
   return (
-    <Card className={bgClass}>
+    <Card className={cn(bgClass, 'overflow-hidden')}>
       <CardContent className="p-3 md:p-4 text-center">
-        <div className={`flex justify-center mb-1.5 ${colorClass}`}>{icon}</div>
-        <div className={`text-2xl md:text-3xl font-bold ${colorClass}`}>{value}</div>
-        <div className="text-xs text-fortnite-muted mt-0.5 font-medium">{label}</div>
+        <div className={cn('flex justify-center mb-2', colorClass)}>{icon}</div>
+        <div className={cn('text-3xl md:text-4xl font-bold tabular-nums leading-none', colorClass)}>{value}</div>
+        <div className="text-xs text-fortnite-muted mt-1.5 font-medium">{label}</div>
       </CardContent>
     </Card>
   )
