@@ -24,7 +24,7 @@ export default function App() {
     retry: false,
   })
 
-  const { data: authStatus } = useQuery({
+  const { data: authStatus, isLoading: isAuthStatusLoading } = useQuery({
     queryKey: ['auth-status'],
     queryFn: api.auth.status,
     enabled: sessionData?.authenticated === true,
@@ -34,6 +34,8 @@ export default function App() {
 
   const isAuthenticated = sessionData?.authenticated === true
   const twitchConnected = authStatus?.connected ?? false
+  // On attend que le statut Twitch soit chargé avant de restreindre les routes
+  const twitchStatusReady = !isAuthenticated || !isAuthStatusLoading
 
   if (isSessionLoading) {
     return (
@@ -58,7 +60,7 @@ export default function App() {
 
         <Sidebar
           connected={ws.connected}
-          hasActiveSession={!!ws.appState.session}
+          hasActiveSession={twitchConnected && !!ws.appState.session}
           twitchConnected={twitchConnected}
           twitchChannel={authStatus?.channel}
           twitchAvatar={authStatus?.profileImageUrl}
@@ -67,7 +69,7 @@ export default function App() {
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           <MobileHeader
             connected={ws.connected}
-            hasActiveSession={!!ws.appState.session}
+            hasActiveSession={twitchConnected && !!ws.appState.session}
             twitchConnected={twitchConnected}
             twitchAvatar={authStatus?.profileImageUrl}
             twitchChannel={authStatus?.channel}
@@ -75,17 +77,27 @@ export default function App() {
 
           <main className="flex-1 overflow-auto pb-20 md:pb-0">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/challenges" element={<Challenges />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              {twitchStatusReady && !twitchConnected ? (
+                // Twitch non connecté : seuls les Paramètres sont accessibles
+                <>
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<Navigate to="/settings" replace />} />
+                </>
+              ) : (
+                <>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/challenges" element={<Challenges />} />
+                  <Route path="/history" element={<History />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </>
+              )}
             </Routes>
           </main>
         </div>
 
         <BottomNav
-          hasActiveSession={!!ws.appState.session}
+          hasActiveSession={twitchConnected && !!ws.appState.session}
           twitchConnected={twitchConnected}
         />
       </div>
