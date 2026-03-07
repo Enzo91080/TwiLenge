@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { AppState, WSEvent } from '@challenge-hub/shared'
 
-// En dev : Vite proxifie /ws -> ws://localhost:3001/ws
-// En prod : meme host que le serveur, protocole ws/wss automatique
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-const WS_URL = `${protocol}//${window.location.host}/ws`
+// En dev : connexion directe au serveur (evite le proxy Vite qui génère des erreurs)
+// En prod : meme host que le serveur
+const WS_URL = import.meta.env.DEV
+  ? 'ws://localhost:3001/ws'
+  : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
 
 const DEFAULT_STATE: AppState = {
   session: null,
