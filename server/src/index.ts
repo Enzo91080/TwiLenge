@@ -4,15 +4,17 @@
 
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import helmet from '@fastify/helmet'
+import rateLimit from '@fastify/rate-limit'
 import websocket from '@fastify/websocket'
 import cookie from '@fastify/cookie'
 import staticPlugin from '@fastify/static'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { initDB, getActiveSession, getSessionChallenges } from './db/index.js'
+import { initDB, getActiveSession, getSessionChallenges, getAuthSession, getSetting } from './db/index.js'
 import { challengeRoutes } from './routes/challenges.js'
 import { sessionRoutes } from './routes/sessions.js'
-import { settingsRoutes } from './routes/settings.js'
+import { settingsRoutes, publicSettingsRoutes } from './routes/settings.js'
 import { authRoutes } from './routes/auth.js'
 import { addClient } from './ws/manager.js'
 import { requireAuth } from './middleware/auth.js'
@@ -45,6 +47,18 @@ async function main() {
 
   // --- PLUGINS ---
 
+  await fastify.register(helmet, {
+    // Desactive CSP car les apps React gerent leurs propres ressources
+    contentSecurityPolicy: false,
+  })
+
+  await fastify.register(rateLimit, {
+    // Global : 200 requetes par minute par IP
+    max: 200,
+    timeWindow: '1 minute',
+    // Routes sensibles recevront une limite plus stricte via config locale
+  })
+
   await fastify.register(cors, {
     origin: isProduction
       ? [config.PUBLIC_URL]
@@ -56,19 +70,32 @@ async function main() {
   await fastify.register(websocket)
 
   // --- ROUTES PUBLIQUES ---
-  // Auth (dashboard login, callback, statut session) + setup initial
+  // Auth (dashboard login, callback, statut session) + setup initial + status
   await fastify.register(authRoutes)
-  await fastify.register(settingsRoutes, { prefix: '/api' })
+  await fastify.register(publicSettingsRoutes, { prefix: '/api' })
 
   // --- ROUTES PROTEGES (necessitent une session dashboard) ---
   await fastify.register(async (app) => {
     app.addHook('preHandler', requireAuth)
     await app.register(challengeRoutes, { prefix: '/api' })
     await app.register(sessionRoutes, { prefix: '/api' })
+    await app.register(settingsRoutes, { prefix: '/api' })
   })
 
-  // WebSocket (ouvert pour le dashboard et l'overlay)
-  fastify.get('/ws', { websocket: true }, (socket) => {
+  // WebSocket : cookie session (dashboard) ou ?token=ws_token (overlay OBS)
+  fastify.get('/ws', { websocket: true }, async (socket, request) => {
+    const cookieToken = (request.cookies as Record<string, string>)?.session_token
+    const queryToken = (request.query as Record<string, string>)?.token
+
+    const cookieValid = cookieToken ? await getAuthSession(cookieToken) : null
+    const wsToken = await getSetting('ws_token')
+    const queryValid = wsToken && queryToken === wsToken
+
+    if (!cookieValid && !queryValid) {
+      socket.close()
+      return
+    }
+
     addClient(socket)
   })
 

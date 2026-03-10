@@ -77,6 +77,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
 
     const { id } = request.params as { id: string }
     const scId = parseInt(id)
+    if (isNaN(scId)) return reply.status(400).send({ error: 'ID invalide' })
 
     if (state.activeChallenge) {
       await updateSessionChallengeStatus(state.activeChallenge.id, 'skipped')
@@ -232,7 +233,9 @@ export async function sessionRoutes(fastify: FastifyInstance) {
   // GET /api/history/:id
   fastify.get('/history/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const session = await getSessionById(parseInt(id))
+    const numId = parseInt(id)
+    if (isNaN(numId)) return reply.status(400).send({ error: 'ID invalide' })
+    const session = await getSessionById(numId)
     if (!session) return reply.status(404).send({ error: 'Session introuvable' })
     return { ...session, challenges: await getSessionChallenges(session.id) }
   })

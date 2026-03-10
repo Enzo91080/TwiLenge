@@ -237,7 +237,13 @@ export function Settings() {
 
   const step1Done = status?.twitchConfigured ?? false
   const step2Done = authStatus?.connected ?? false
+  const wsToken = settings['ws_token'] ?? ''
   const overlayBase = `${window.location.origin}/overlay`
+  const overlayTokenParam = wsToken ? `token=${wsToken}` : ''
+  const overlayUrl = (extra?: string) => {
+    const params = [overlayTokenParam, extra].filter(Boolean).join('&')
+    return params ? `${overlayBase}?${params}` : overlayBase
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-5 max-w-2xl mx-auto">
@@ -486,10 +492,10 @@ export function Settings() {
 
         <div className="space-y-2">
           {[
-            { label: 'Haut droite (défaut)', url: overlayBase },
-            { label: 'Haut gauche', url: `${overlayBase}?position=top-left` },
-            { label: 'Bas droite', url: `${overlayBase}?position=bottom-right` },
-            { label: 'Bas gauche', url: `${overlayBase}?position=bottom-left` },
+            { label: 'Haut droite (défaut)', url: overlayUrl() },
+            { label: 'Haut gauche', url: overlayUrl('position=top-left') },
+            { label: 'Bas droite', url: overlayUrl('position=bottom-right') },
+            { label: 'Bas gauche', url: overlayUrl('position=bottom-left') },
           ].map(({ label, url }) => (
             <div key={url} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-fortnite-darker border border-fortnite-border group hover:border-fortnite-border/80 transition-colors">
               <div className="min-w-0">

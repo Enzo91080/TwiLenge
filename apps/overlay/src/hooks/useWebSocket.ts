@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { AppState, WSEvent } from '@challenge-hub/shared'
 
-// En dev : connexion directe au serveur (evite le proxy Vite qui génère des erreurs)
-// En prod : meme host que le serveur
-const WS_URL = import.meta.env.DEV
+// Lire le token depuis les params URL de l'overlay (ex: ?token=xxx&position=top-right)
+const overlayToken = new URLSearchParams(window.location.search).get('token') ?? ''
+const WS_BASE = import.meta.env.DEV
   ? 'ws://localhost:3001/ws'
   : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
+const WS_URL = `${WS_BASE}?token=${encodeURIComponent(overlayToken)}`
 
 const DEFAULT_STATE: AppState = {
   session: null,

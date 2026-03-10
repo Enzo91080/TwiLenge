@@ -338,6 +338,7 @@ async function seedDefaultSettings(): Promise<void> {
     ['bot_enabled', 'false'],
     ['channel_points_enabled', 'false'],
     ['channel_points_reward_name', 'Defi aleatoire'],
+    ['ws_token', randomBytes(32).toString('hex')],
   ]
   for (const [key, value] of defaults) {
     await settings().updateOne(

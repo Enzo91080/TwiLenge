@@ -45,7 +45,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // ============================================================
 
   // GET /auth/dashboard - Lance le flow OAuth pour le login du dashboard
-  fastify.get('/auth/dashboard', async (request, reply) => {
+  fastify.get('/auth/dashboard', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!await isTwitchConfigured()) {
       return reply.redirect(`${config.WEB_URL}/?setup=true`)
     }
@@ -184,7 +184,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // ============================================================
 
   // GET /auth/twitch - Lance le flow OAuth pour le bot
-  fastify.get('/auth/twitch', async (request, reply) => {
+  fastify.get('/auth/twitch', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     if (!await isTwitchConfigured()) {
       return reply.status(400).send({
         error: 'Twitch non configure. Remplis la configuration dans les Parametres.',
@@ -210,7 +210,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     const expiresAt = await getSetting('twitch_token_expires_at')
 
     if (!token) return { connected: false, reason: 'no_token' }
-    if (expiresAt && Date.now() > parseInt(expiresAt)) return { connected: false, reason: 'expired' }
+    const expiresAtMs = expiresAt ? parseInt(expiresAt) : NaN
+    if (!isNaN(expiresAtMs) && Date.now() > expiresAtMs) return { connected: false, reason: 'expired' }
 
     const channel = await getSetting('twitch_channel')
     return {

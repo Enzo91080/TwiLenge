@@ -52,11 +52,13 @@ export async function challengeRoutes(fastify: FastifyInstance) {
   // PUT /api/challenges/:id
   fastify.put('/challenges/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
+    const numId = parseInt(id)
+    if (isNaN(numId)) return reply.status(400).send({ error: 'ID invalide' })
     const body = ChallengeSchema.partial().safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send({ error: body.error.flatten() })
     }
-    const challenge = await updateChallenge(parseInt(id), body.data)
+    const challenge = await updateChallenge(numId, body.data)
     if (!challenge) return reply.status(404).send({ error: 'Defi introuvable' })
     return challenge
   })
@@ -64,7 +66,9 @@ export async function challengeRoutes(fastify: FastifyInstance) {
   // DELETE /api/challenges/:id
   fastify.delete('/challenges/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const deleted = await deleteChallenge(parseInt(id))
+    const numId = parseInt(id)
+    if (isNaN(numId)) return reply.status(400).send({ error: 'ID invalide' })
+    const deleted = await deleteChallenge(numId)
     if (!deleted) return reply.status(404).send({ error: 'Defi introuvable' })
     return { success: true }
   })
