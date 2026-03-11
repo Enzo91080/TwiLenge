@@ -29,7 +29,7 @@ interface SessionChallengeDoc {
   activatedAt: string | null; completedAt: string | null
 }
 interface SettingDoc { _id: string; value: string }   // _id = "streamerId:key"
-interface CounterDoc { _id: string; seq: number }     // _id = "name:streamerId"
+interface CounterDoc { _id: string; seq: number }     // _id = "name" (global) ou "name:streamerId"
 interface AuthSessionDoc { _id: string; login: string; expiresAt: Date }
 
 let client: MongoClient
@@ -66,9 +66,10 @@ function sessions() { return db.collection<SessionDoc>('sessions') }
 function sessionChallenges() { return db.collection<SessionChallengeDoc>('sessionChallenges') }
 function settings() { return db.collection<SettingDoc>('settings') }
 
-async function getNextId(name: string, streamerId: string): Promise<number> {
+// IDs globaux : uniques sur toute la collection, peu importe le streamer
+async function getNextId(name: string): Promise<number> {
   const result = await counters().findOneAndUpdate(
-    { _id: `${name}:${streamerId}` },
+    { _id: name },
     { $inc: { seq: 1 } },
     { upsert: true, returnDocument: 'after' },
   )
@@ -145,7 +146,7 @@ export async function getChallengeById(streamerId: string, id: number): Promise<
 }
 
 export async function createChallenge(streamerId: string, data: Omit<Challenge, 'id' | 'createdAt'>): Promise<Challenge> {
-  const id = await getNextId('challenges', streamerId)
+  const id = await getNextId('challenges')
   const doc: ChallengeDoc = {
     _id: id,
     streamerId,
@@ -192,7 +193,6 @@ export async function reorderChallenges(streamerId: string, orderedIds: number[]
 
 export async function resetToDefaultChallenges(streamerId: string): Promise<void> {
   await challenges().deleteMany({ streamerId })
-  await counters().deleteOne({ _id: `challenges:${streamerId}` })
   await seedDefaultChallenges(streamerId)
 }
 
@@ -216,7 +216,7 @@ export async function getAllSessions(streamerId: string): Promise<Session[]> {
 }
 
 export async function createSession(streamerId: string): Promise<Session> {
-  const id = await getNextId('sessions', streamerId)
+  const id = await getNextId('sessions')
   const doc: SessionDoc = {
     _id: id,
     streamerId,
@@ -255,7 +255,7 @@ export async function getSessionChallenges(streamerId: string, sessionId: number
 }
 
 export async function addChallengeToSession(streamerId: string, sessionId: number, challengeId: number): Promise<SessionChallenge> {
-  const id = await getNextId('sessionChallenges', streamerId)
+  const id = await getNextId('sessionChallenges')
   const doc: SessionChallengeDoc = {
     _id: id,
     streamerId,

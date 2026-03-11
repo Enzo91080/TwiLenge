@@ -108,7 +108,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
   fastify.post('/session/complete', async (request, reply) => {
     const streamerId = (request as any).twitchLogin as string
     const s = getState(streamerId)
-    if (!s.activeChallenge) return reply.status(400).send({ error: 'Aucun defi actif.' })
+    if (!s.activeChallenge) return reply.status(400).send({ error: 'BOT: Aucun defi actif.' })
 
     stopTimer(streamerId)
     s.timerSecondsLeft = null
@@ -127,7 +127,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
   fastify.post('/session/fail', async (request, reply) => {
     const streamerId = (request as any).twitchLogin as string
     const s = getState(streamerId)
-    if (!s.activeChallenge) return reply.status(400).send({ error: 'Aucun defi actif.' })
+    if (!s.activeChallenge) return reply.status(400).send({ error: 'BOT: Aucun defi actif.' })
 
     stopTimer(streamerId)
     s.timerSecondsLeft = null
@@ -146,7 +146,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
   fastify.post('/session/skip', async (request, reply) => {
     const streamerId = (request as any).twitchLogin as string
     const s = getState(streamerId)
-    if (!s.activeChallenge) return reply.status(400).send({ error: 'Aucun defi actif.' })
+    if (!s.activeChallenge) return reply.status(400).send({ error: 'BOT: Aucun defi actif.' })
 
     stopTimer(streamerId)
     s.timerSecondsLeft = null
@@ -168,7 +168,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
     if (!s.session) return reply.status(400).send({ error: 'Aucune session en cours.' })
 
     const pending = s.pendingChallenges.filter((sc) => sc.status === 'pending')
-    if (pending.length === 0) return reply.status(400).send({ error: 'Plus aucun defi en attente.' })
+    if (pending.length === 0) return reply.status(400).send({ error: 'BOT: Plus aucun defi en attente.' })
 
     const random = pending[Math.floor(Math.random() * pending.length)]
 
@@ -201,7 +201,7 @@ export async function sessionRoutes(fastify: FastifyInstance) {
   fastify.post('/session/timer/start', async (request, reply) => {
     const streamerId = (request as any).twitchLogin as string
     const s = getState(streamerId)
-    if (!s.activeChallenge) return reply.status(400).send({ error: 'Aucun defi actif.' })
+    if (!s.activeChallenge) return reply.status(400).send({ error: 'BOT: Aucun defi actif.' })
     const seconds = s.activeChallenge.challenge.timerSeconds
     if (!seconds) return reply.status(400).send({ error: "Ce defi n'a pas de timer configure." })
     startTimerForChallenge(streamerId, seconds)

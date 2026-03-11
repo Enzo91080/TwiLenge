@@ -77,7 +77,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // GET /auth/callback - Twitch redirige ici apres autorisation
   fastify.get('/auth/callback', async (request, reply) => {
-    const { code, error, state } = request.query as {
+    const { code, error } = request.query as {
       code?: string; error?: string; state?: string
     }
 

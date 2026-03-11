@@ -84,7 +84,7 @@ export async function startTwitchBot(streamerId: string): Promise<void> {
 
       if ((cmd === 'defi' || cmd === 'challenge') && await isCmdEnabled('defi')) {
         if (!s.activeChallenge) {
-          chatClient.say(chatChannel, 'Aucun defi actif pour le moment !')
+          chatClient.say(chatChannel, 'BOT: Aucun defi actif pour le moment !')
         } else {
           const c = s.activeChallenge.challenge
           const timer = s.timerSecondsLeft !== null ? ` | Timer: ${formatTime(s.timerSecondsLeft)}` : ''
@@ -107,10 +107,10 @@ export async function startTwitchBot(streamerId: string): Promise<void> {
       if ((cmd === 'prochains' || cmd === 'next') && await isCmdEnabled('prochains')) {
         const pending = s.pendingChallenges.slice(0, 3)
         if (pending.length === 0) {
-          chatClient.say(chatChannel, 'Plus aucun defi en attente.')
+          chatClient.say(chatChannel, 'BOT: Plus aucun defi en attente.')
         } else {
           const list = pending.map((sc, i) => `${i + 1}. ${sc.challenge.title}`).join(' | ')
-          chatClient.say(chatChannel, `Prochains defis : ${list}`)
+          chatClient.say(chatChannel, `BOT: Prochains defis : ${list}`)
         }
         return
       }
@@ -136,7 +136,7 @@ export async function startTwitchBot(streamerId: string): Promise<void> {
       if (!isStreamer) return
 
       if ((cmd === 'ok' || cmd === 'complete') && await isCmdEnabled('ok')) {
-        if (!s.activeChallenge) { chatClient.say(chatChannel, 'Aucun defi actif.'); return }
+        if (!s.activeChallenge) { chatClient.say(chatChannel, 'BOT: Aucun defi actif.'); return }
         stopTimer(streamerId)
         s.timerSecondsLeft = null
         const completed = (await updateSessionChallengeStatus(streamerId, s.activeChallenge.id, 'completed'))!
@@ -149,7 +149,7 @@ export async function startTwitchBot(streamerId: string): Promise<void> {
       }
 
       if (cmd === 'fail' && await isCmdEnabled('fail')) {
-        if (!s.activeChallenge) { chatClient.say(chatChannel, 'Aucun defi actif.'); return }
+        if (!s.activeChallenge) { chatClient.say(chatChannel, 'BOT: Aucun defi actif.'); return }
         stopTimer(streamerId)
         s.timerSecondsLeft = null
         const failed = (await updateSessionChallengeStatus(streamerId, s.activeChallenge.id, 'failed'))!
@@ -162,7 +162,7 @@ export async function startTwitchBot(streamerId: string): Promise<void> {
       }
 
       if (cmd === 'skip' && await isCmdEnabled('skip')) {
-        if (!s.activeChallenge) { chatClient.say(chatChannel, 'Aucun defi actif.'); return }
+        if (!s.activeChallenge) { chatClient.say(chatChannel, 'BOT: Aucun defi actif.'); return }
         stopTimer(streamerId)
         s.timerSecondsLeft = null
         const skipped = (await updateSessionChallengeStatus(streamerId, s.activeChallenge.id, 'skipped'))!

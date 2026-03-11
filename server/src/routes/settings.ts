@@ -19,9 +19,6 @@ const PRIVATE_KEYS = new Set([
   'twitch_token_expires_at',
 ])
 
-const TWITCH_CREDENTIAL_KEYS = new Set([
-  'twitch_channel',
-])
 
 const ALLOWED_SETTING_KEYS = new Set([
   'twitch_channel',
@@ -70,13 +67,14 @@ export async function settingsRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: `Cles non autorisees : ${unknownKeys.join(', ')}` })
     }
 
-    let twitchCredentialsChanged = false
+    const BOT_RESTART_KEYS = new Set(['twitch_channel', 'bot_enabled', 'channel_points_enabled'])
+    let needsRestart = false
     for (const [key, value] of Object.entries(parsed.data)) {
       await setSetting(streamerId, key, value)
-      if (TWITCH_CREDENTIAL_KEYS.has(key)) twitchCredentialsChanged = true
+      if (BOT_RESTART_KEYS.has(key)) needsRestart = true
     }
 
-    if (twitchCredentialsChanged) {
+    if (needsRestart) {
       stopTwitchBot(streamerId)
       stopEventSub(streamerId)
       await startTwitchBot(streamerId)
