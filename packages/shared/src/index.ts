@@ -87,12 +87,25 @@ export type WSEvent =
   | { type: 'VOTE_UPDATE'; data: Record<number, number> }
   | { type: 'WHEEL_SPUN'; data: SessionChallenge }
 
+// --- STYLE VISUEL DE L'OVERLAY ---
+export type OverlayStyle = 'gaming' | 'minimal' | 'neon' | 'banner' | 'pill'
+
+// Catalogue des styles disponibles (label + description pour l'UI)
+export const OVERLAY_STYLES: Record<OverlayStyle, { label: string; description: string }> = {
+  gaming:  { label: 'Gaming',   description: 'Card sombre avec coin coupé, style HUD gaming' },
+  minimal: { label: 'Minimal',  description: 'Fond semi-transparent discret et épuré' },
+  neon:    { label: 'Néon',     description: 'Fond noir avec effets lumineux néon colorés' },
+  banner:  { label: 'Bannière', description: 'Bande horizontale large, idéal en haut de scène' },
+  pill:    { label: 'Pill',     description: 'Pastille compacte, très discrète' },
+}
+
 // --- PARAMETRES DE L'OVERLAY ---
-// Recuperes depuis l'URL (ex: ?position=top-right&theme=dark)
+// Recuperes depuis l'URL (ex: ?position=top-right&theme=dark&style=gaming)
 export interface OverlayParams {
   position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
   theme: 'dark' | 'light'
   scale: number
+  style: OverlayStyle
 }
 
 // --- LABELS LISIBLES PAR LES HUMAINS ---

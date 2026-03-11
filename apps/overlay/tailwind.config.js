@@ -4,6 +4,10 @@ export default {
   theme: {
     extend: {
       keyframes: {
+        'neon-glow': {
+          '0%, 100%': { opacity: '0.7' },
+          '50%':      { opacity: '1' },
+        },
         'pop-in': {
           '0%':   { opacity: '0', transform: 'scale(0.88) translateY(-6px)' },
           '65%':  { opacity: '1', transform: 'scale(1.02) translateY(0)' },
@@ -28,6 +32,7 @@ export default {
         },
       },
       animation: {
+        'neon-glow':   'neon-glow 2.5s ease-in-out infinite',
         'pop-in':      'pop-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'result-in':   'result-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'result-out':  'result-out 0.3s ease-in forwards',

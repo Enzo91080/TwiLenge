@@ -8,6 +8,7 @@
 //   ?position=top-right  (defaut) | top-left | bottom-right | bottom-left
 //   ?theme=dark (defaut) | light
 //   ?scale=1 (defaut, valeurs de 0.5 a 2)
+//   ?style=gaming (defaut) | minimal | neon | banner | pill
 // =============================================================
 
 import { useEffect, useState } from 'react'
@@ -21,8 +22,9 @@ function getOverlayParams(): OverlayParams {
   const params = new URLSearchParams(window.location.search)
   return {
     position: (params.get('position') as OverlayParams['position']) ?? 'top-right',
-    theme: (params.get('theme') as OverlayParams['theme']) ?? 'dark',
-    scale: parseFloat(params.get('scale') ?? '1'),
+    theme:    (params.get('theme')    as OverlayParams['theme'])    ?? 'dark',
+    scale:    parseFloat(params.get('scale') ?? '1'),
+    style:    (params.get('style')    as OverlayParams['style'])    ?? 'gaming',
   }
 }
 
@@ -54,7 +56,6 @@ export default function App() {
   }, [lastEvent])
 
   // Si aucun defi actif et pas de flash, ne rien afficher
-  // (fond transparent, l'overlay est invisible dans OBS)
   if (!activeChallenge && !flash) return null
 
   return (
@@ -68,6 +69,7 @@ export default function App() {
       {/* Defi en cours */}
       {activeChallenge && !flash && (
         <ChallengeDisplay
+          style={params.style}
           challenge={activeChallenge.challenge}
           timerSecondsLeft={timerSecondsLeft}
           theme={params.theme}
