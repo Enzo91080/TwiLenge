@@ -1,71 +1,74 @@
 // =============================================================
-// ETAT GLOBAL EN MEMOIRE
+// ETAT EN MEMOIRE — MULTI-TENANT
 // =============================================================
-// Cet objet contient l'etat actuel de l'application.
-// Il est mis a jour par les routes et diffuse aux clients via WebSocket.
-// Il est reconstruit depuis la BDD au demarrage du serveur.
+// Chaque streamer a son propre etat isole.
+// getState(streamerId) cree l'etat si inexistant.
 // =============================================================
 
 import type { Session, SessionChallenge } from '@challenge-hub/shared'
 
-export const state = {
-  // Session en cours (null si aucune session active)
-  session: null as Session | null,
-
-  // Defi actuellement actif (null si aucun)
-  activeChallenge: null as SessionChallenge | null,
-
-  // Defis de la session en attente (order = ordre d'affichage)
-  pendingChallenges: [] as SessionChallenge[],
-
-  // Compteurs de la session
-  completedCount: 0,
-  failedCount: 0,
-  skippedCount: 0,
-
-  // Timer en cours (secondes restantes, null si pas de timer)
-  timerSecondsLeft: null as number | null,
-  timerInterval: null as NodeJS.Timeout | null,
-
-  // Votes du chat { challengeId: nombreDeVotes }
-  votes: {} as Record<number, number>,
+export interface StreamerState {
+  session: Session | null
+  activeChallenge: SessionChallenge | null
+  pendingChallenges: SessionChallenge[]
+  completedCount: number
+  failedCount: number
+  skippedCount: number
+  timerSecondsLeft: number | null
+  timerInterval: NodeJS.Timeout | null
+  votes: Record<number, number>
 }
 
-// Remet l'etat a zero (appele quand une session se termine)
-export function resetState() {
-  state.session = null
-  state.activeChallenge = null
-  state.pendingChallenges = []
-  state.completedCount = 0
-  state.failedCount = 0
-  state.skippedCount = 0
-  state.timerSecondsLeft = null
-  state.votes = {}
-  stopTimer()
+const streamerStates = new Map<string, StreamerState>()
+
+function createEmptyState(): StreamerState {
+  return {
+    session: null,
+    activeChallenge: null,
+    pendingChallenges: [],
+    completedCount: 0,
+    failedCount: 0,
+    skippedCount: 0,
+    timerSecondsLeft: null,
+    timerInterval: null,
+    votes: {},
+  }
+}
+
+export function getState(streamerId: string): StreamerState {
+  if (!streamerStates.has(streamerId)) {
+    streamerStates.set(streamerId, createEmptyState())
+  }
+  return streamerStates.get(streamerId)!
+}
+
+export function resetState(streamerId: string): void {
+  stopTimer(streamerId)
+  streamerStates.set(streamerId, createEmptyState())
 }
 
 // --- GESTION DU TIMER ---
 
-export function startTimer(seconds: number, onExpire: () => void) {
-  stopTimer() // Arreter le timer precedent si il y en a un
-  state.timerSecondsLeft = seconds
+export function startTimer(streamerId: string, seconds: number, onExpire: () => void): void {
+  stopTimer(streamerId)
+  const s = getState(streamerId)
+  s.timerSecondsLeft = seconds
 
-  state.timerInterval = setInterval(() => {
-    if (state.timerSecondsLeft === null) return
-
-    state.timerSecondsLeft--
-
-    if (state.timerSecondsLeft <= 0) {
-      stopTimer()
-      state.timerSecondsLeft = null
+  s.timerInterval = setInterval(() => {
+    if (s.timerSecondsLeft === null) return
+    s.timerSecondsLeft--
+    if (s.timerSecondsLeft <= 0) {
+      stopTimer(streamerId)
+      s.timerSecondsLeft = null
       onExpire()
     }
   }, 1000)
 }
 
-export function stopTimer() {
-  if (state.timerInterval) {
-    clearInterval(state.timerInterval)
-    state.timerInterval = null
+export function stopTimer(streamerId: string): void {
+  const s = streamerStates.get(streamerId)
+  if (s?.timerInterval) {
+    clearInterval(s.timerInterval)
+    s.timerInterval = null
   }
 }

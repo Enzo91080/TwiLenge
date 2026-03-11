@@ -1,5 +1,5 @@
 // =============================================================
-// POINT D'ENTREE DU SERVEUR
+// POINT D'ENTREE DU SERVEUR — MULTI-TENANT
 // =============================================================
 
 import Fastify from 'fastify'
@@ -11,7 +11,14 @@ import cookie from '@fastify/cookie'
 import staticPlugin from '@fastify/static'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { initDB, getActiveSession, getSessionChallenges, getAuthSession, getSetting } from './db/index.js'
+import {
+  initDB,
+  getActiveSession,
+  getSessionChallenges,
+  getAuthSession,
+  getSetting,
+  getActiveAuthSessions,
+} from './db/index.js'
 import { challengeRoutes } from './routes/challenges.js'
 import { sessionRoutes } from './routes/sessions.js'
 import { settingsRoutes, publicSettingsRoutes } from './routes/settings.js'
@@ -21,7 +28,7 @@ import { requireAuth } from './middleware/auth.js'
 import { startTwitchBot } from './twitch/bot.js'
 import { startEventSub } from './twitch/eventsub.js'
 import { config } from './config.js'
-import { state } from './state.js'
+import { getState } from './state.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isProduction = process.env.NODE_ENV === 'production'
@@ -32,32 +39,33 @@ async function main() {
   // 1. Base de donnees MongoDB
   await initDB()
 
-  // 2. Restaurer la session active depuis la BDD
-  const activeSession = await getActiveSession()
-  if (activeSession) {
-    state.session = activeSession
-    const challenges = await getSessionChallenges(activeSession.id)
-    state.activeChallenge = challenges.find((c) => c.status === 'active') ?? null
-    state.pendingChallenges = challenges.filter((c) => c.status === 'pending')
-    state.completedCount = challenges.filter((c) => c.status === 'completed').length
-    state.failedCount = challenges.filter((c) => c.status === 'failed').length
-    state.skippedCount = challenges.filter((c) => c.status === 'skipped').length
-    console.log(`[Session] Session #${activeSession.id} restauree`)
+  // 2. Restaurer les bots des streameurs ayant une session auth active
+  const activeSessions = await getActiveAuthSessions()
+  for (const { login } of activeSessions) {
+    const streamerId = login
+    // Restaurer l'etat en memoire si une session de jeu est active
+    const activeSession = await getActiveSession(streamerId)
+    if (activeSession) {
+      const s = getState(streamerId)
+      s.session = activeSession
+      const challenges = await getSessionChallenges(streamerId, activeSession.id)
+      s.activeChallenge = challenges.find((c) => c.status === 'active') ?? null
+      s.pendingChallenges = challenges.filter((c) => c.status === 'pending')
+      s.completedCount = challenges.filter((c) => c.status === 'completed').length
+      s.failedCount = challenges.filter((c) => c.status === 'failed').length
+      s.skippedCount = challenges.filter((c) => c.status === 'skipped').length
+      console.log(`[Session] Session restauree pour ${streamerId}`)
+    }
+    // Demarrer bot et EventSub
+    await startTwitchBot(streamerId)
+    await startEventSub(streamerId)
   }
 
   // --- PLUGINS ---
 
-  await fastify.register(helmet, {
-    // Desactive CSP car les apps React gerent leurs propres ressources
-    contentSecurityPolicy: false,
-  })
+  await fastify.register(helmet, { contentSecurityPolicy: false })
 
-  await fastify.register(rateLimit, {
-    // Global : 200 requetes par minute par IP
-    max: 200,
-    timeWindow: '1 minute',
-    // Routes sensibles recevront une limite plus stricte via config locale
-  })
+  await fastify.register(rateLimit, { max: 200, timeWindow: '1 minute' })
 
   await fastify.register(cors, {
     origin: isProduction
@@ -70,11 +78,10 @@ async function main() {
   await fastify.register(websocket)
 
   // --- ROUTES PUBLIQUES ---
-  // Auth (dashboard login, callback, statut session) + setup initial + status
   await fastify.register(authRoutes)
   await fastify.register(publicSettingsRoutes, { prefix: '/api' })
 
-  // --- ROUTES PROTEGES (necessitent une session dashboard) ---
+  // --- ROUTES PROTEGES ---
   await fastify.register(async (app) => {
     app.addHook('preHandler', requireAuth)
     await app.register(challengeRoutes, { prefix: '/api' })
@@ -82,21 +89,43 @@ async function main() {
     await app.register(settingsRoutes, { prefix: '/api' })
   })
 
-  // WebSocket : cookie session (dashboard) ou ?token=ws_token (overlay OBS)
+  // WebSocket : cookie session (dashboard) ou ?token=ws_token&streamer=login (overlay OBS)
   fastify.get('/ws', { websocket: true }, async (socket, request) => {
     const cookieToken = (request.cookies as Record<string, string>)?.session_token
     const queryToken = (request.query as Record<string, string>)?.token
+    const queryStreamer = (request.query as Record<string, string>)?.streamer
 
-    const cookieValid = cookieToken ? await getAuthSession(cookieToken) : null
-    const wsToken = await getSetting('ws_token')
-    const queryValid = wsToken && queryToken === wsToken
+    let streamerId: string | null = null
 
-    if (!cookieValid && !queryValid) {
+    if (cookieToken) {
+      const session = await getAuthSession(cookieToken)
+      if (session) streamerId = session.login
+    } else if (queryToken && queryStreamer) {
+      const wsToken = await getSetting(queryStreamer, 'ws_token')
+      if (wsToken && queryToken === wsToken) streamerId = queryStreamer
+    }
+
+    if (!streamerId) {
       socket.close()
       return
     }
 
-    addClient(socket)
+    // Restauration lazy de l'etat si pas encore charge
+    const s = getState(streamerId)
+    if (!s.session) {
+      const activeSession = await getActiveSession(streamerId)
+      if (activeSession) {
+        s.session = activeSession
+        const challenges = await getSessionChallenges(streamerId, activeSession.id)
+        s.activeChallenge = challenges.find((c) => c.status === 'active') ?? null
+        s.pendingChallenges = challenges.filter((c) => c.status === 'pending')
+        s.completedCount = challenges.filter((c) => c.status === 'completed').length
+        s.failedCount = challenges.filter((c) => c.status === 'failed').length
+        s.skippedCount = challenges.filter((c) => c.status === 'skipped').length
+      }
+    }
+
+    addClient(socket, streamerId)
   })
 
   fastify.get('/health', async () => ({ status: 'ok' }))
@@ -130,10 +159,11 @@ async function main() {
     console.log(`  Dashboard  : http://localhost:5173`)
     console.log(`  Overlay OBS: http://localhost:5174\n`)
   }
-
-  await startTwitchBot()
-  await startEventSub()
 }
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Server] Rejection non geree (non fatale):', reason)
+})
 
 main().catch((err) => {
   console.error('Erreur fatale au demarrage:', err)

@@ -3,12 +3,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { AppState, WSEvent } from '@challenge-hub/shared'
 
-// Lire le token depuis les params URL de l'overlay (ex: ?token=xxx&position=top-right)
-const overlayToken = new URLSearchParams(window.location.search).get('token') ?? ''
+// Lire token et streamer depuis les params URL de l'overlay
+// ex: ?token=xxx&streamer=monlogin&position=top-right
+const params = new URLSearchParams(window.location.search)
+const overlayToken = params.get('token') ?? ''
+const overlayStreamer = params.get('streamer') ?? ''
 const WS_BASE = import.meta.env.DEV
   ? 'ws://localhost:3001/ws'
   : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`
-const WS_URL = `${WS_BASE}?token=${encodeURIComponent(overlayToken)}`
+const WS_URL = `${WS_BASE}?token=${encodeURIComponent(overlayToken)}&streamer=${encodeURIComponent(overlayStreamer)}`
 
 const DEFAULT_STATE: AppState = {
   session: null,

@@ -7,14 +7,12 @@ import { useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
   ExternalLink, CheckCircle, XCircle,
-  Twitch, Server, Bot, Zap, Copy, Save, Eye, EyeOff,
+  Twitch, Server, Bot, Zap, Copy,
   Check, Lock, ChevronDown, Monitor,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Input } from '../components/ui/input'
-import { Label } from '../components/ui/label'
 import { Switch } from '../components/ui/switch'
 import { cn } from '../lib/utils'
 
@@ -114,7 +112,7 @@ function SetupStep({
 
 function SetupProgress({ step1Done, step2Done }: { step1Done: boolean; step2Done: boolean }) {
   const steps = [
-    { label: 'API', done: step1Done },
+    { label: 'App', done: step1Done },
     { label: 'Auth', done: step2Done },
     { label: 'Bot', done: false },
     { label: 'OBS', done: false },
@@ -202,47 +200,24 @@ export function Settings() {
     },
   })
 
-  const [twitchForm, setTwitchForm] = useState({ clientId: '', clientSecret: '' })
-  const [showSecret, setShowSecret] = useState(false)
-  const [twitchSaved, setTwitchSaved] = useState(false)
-
-  useEffect(() => {
-    setTwitchForm({
-      clientId: settings['twitch_client_id'] ?? '',
-      clientSecret: '',
-    })
-  }, [settings])
-
-  const saveTwitchConfig = () => {
-    const data: Record<string, string> = {
-      twitch_client_id: twitchForm.clientId.trim(),
-    }
-    if (twitchForm.clientSecret) {
-      data['twitch_client_secret'] = twitchForm.clientSecret.trim()
-    }
-    settingsMut.mutate(data, {
-      onSuccess: () => {
-        setTwitchSaved(true)
-        setTimeout(() => setTwitchSaved(false), 3000)
-        qc.invalidateQueries({ queryKey: ['status'] })
-      },
-    })
-  }
-
   const isCmdEnabled = (key: string) => settings[`bot_cmd_${key}`] !== 'false'
   const toggleCmd = (key: string, enabled: boolean) =>
     settingsMut.mutate({ [`bot_cmd_${key}`]: enabled ? 'true' : 'false' })
 
   const copyToClipboard = (text: string) => navigator.clipboard.writeText(text).catch(() => {})
 
-  const step1Done = status?.twitchConfigured ?? false
+  const step1Done = status?.appConfigured ?? false
   const step2Done = authStatus?.connected ?? false
   const wsToken = settings['ws_token'] ?? ''
+  const streamerLogin = authStatus?.login ?? ''
   const overlayBase = `${window.location.origin}/overlay`
-  const overlayTokenParam = wsToken ? `token=${wsToken}` : ''
+  const overlayBaseParams = [
+    wsToken ? `token=${wsToken}` : '',
+    streamerLogin ? `streamer=${streamerLogin}` : '',
+  ].filter(Boolean).join('&')
   const overlayUrl = (extra?: string) => {
-    const params = [overlayTokenParam, extra].filter(Boolean).join('&')
-    return params ? `${overlayBase}?${params}` : overlayBase
+    const p = [overlayBaseParams, extra].filter(Boolean).join('&')
+    return p ? `${overlayBase}?${p}` : overlayBase
   }
 
   return (
@@ -277,79 +252,47 @@ export function Settings() {
       {/* Barre de progression */}
       <SetupProgress step1Done={step1Done} step2Done={step2Done} />
 
-      {/* ─── ÉTAPE 1 : Créer une application Twitch ─── */}
+      {/* ─── ÉTAPE 1 : App Twitch (configurée côté serveur) ─── */}
       <SetupStep
         number={1}
-        title="Créer une application Twitch"
-        description="Configure ton Client ID et Client Secret depuis le portail développeur"
+        title="Application Twitch"
+        description="Client ID et Client Secret configurés dans le .env du serveur"
         status={step1Done ? 'done' : 'current'}
       >
-        <p className="text-sm text-fortnite-muted">
-          Crée une application sur{' '}
-          <a href="https://dev.twitch.tv/console" target="_blank" rel="noopener noreferrer"
-            className="text-purple-400 underline underline-offset-2 inline-flex items-center gap-1">
-            dev.twitch.tv/console <ExternalLink className="w-3 h-3" />
-          </a>{' '}
-          et entre tes identifiants ci-dessous.
-        </p>
-
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Client ID</Label>
-            <Input
-              placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              value={twitchForm.clientId}
-              onChange={(e) => setTwitchForm({ ...twitchForm, clientId: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Client Secret</Label>
-            <div className="relative">
-              <Input
-                type={showSecret ? 'text' : 'password'}
-                placeholder={settings['twitch_client_id'] ? '(déjà configuré — laisser vide pour conserver)' : 'xxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
-                value={twitchForm.clientSecret}
-                onChange={(e) => setTwitchForm({ ...twitchForm, clientSecret: e.target.value })}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecret(!showSecret)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-fortnite-muted hover:text-white"
-              >
-                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* URL de callback */}
-        {status?.authCallbackUrl && (
-          <div className="p-3 rounded-lg bg-fortnite-darker border border-fortnite-border space-y-1.5">
-            <p className="text-xs font-semibold text-white">
-              URL de callback à enregistrer dans la Twitch Developer Console :
+        {step1Done ? (
+          <p className="text-sm text-green-400/80">
+            L'application Twitch est correctement configurée par l'opérateur du serveur.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-fortnite-muted">
+              L'application n'est pas encore configurée. L'opérateur du serveur doit renseigner{' '}
+              <code className="text-fortnite-yellow">TWITCH_CLIENT_ID</code> et{' '}
+              <code className="text-fortnite-yellow">TWITCH_CLIENT_SECRET</code> dans le fichier{' '}
+              <code className="text-fortnite-yellow">.env</code> du serveur.
             </p>
-            <div className="flex items-center gap-2">
-              <code className="text-xs text-fortnite-yellow break-all flex-1">{status.authCallbackUrl}</code>
-              <Button variant="ghost" size="icon" onClick={() => copyToClipboard(status.authCallbackUrl)}
-                title="Copier" className="shrink-0 h-7 w-7">
-                <Copy className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+            <p className="text-sm text-fortnite-muted">
+              Crée une application sur{' '}
+              <a href="https://dev.twitch.tv/console" target="_blank" rel="noopener noreferrer"
+                className="text-purple-400 underline underline-offset-2 inline-flex items-center gap-1">
+                dev.twitch.tv/console <ExternalLink className="w-3 h-3" />
+              </a>{' '}
+              et configure l'URL de callback suivante :
+            </p>
+            {status?.authCallbackUrl && (
+              <div className="p-3 rounded-lg bg-fortnite-darker border border-fortnite-border space-y-1.5">
+                <p className="text-xs font-semibold text-white">URL de callback :</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs text-fortnite-yellow break-all flex-1">{status.authCallbackUrl}</code>
+                  <Button variant="ghost" size="icon" onClick={() => copyToClipboard(status.authCallbackUrl)}
+                    title="Copier" className="shrink-0 h-7 w-7">
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
-
-        <Button
-          onClick={saveTwitchConfig}
-          disabled={settingsMut.isPending || !twitchForm.clientId}
-          variant={twitchSaved ? 'success' : 'default'}
-          className="w-full"
-        >
-          {twitchSaved
-            ? <><CheckCircle className="w-4 h-4" /> Sauvegardé !</>
-            : <><Save className="w-4 h-4" /> Sauvegarder la configuration</>
-          }
-        </Button>
       </SetupStep>
 
       {/* ─── ÉTAPE 2 : Connexion OAuth ─── */}
@@ -395,7 +338,7 @@ export function Settings() {
               </div>
             </div>
             <Button asChild className="w-full">
-              <a href="/auth/twitch">
+              <a href="/auth/dashboard">
                 <Twitch className="w-4 h-4" />
                 Connecter avec Twitch
               </a>
@@ -530,17 +473,18 @@ export function Settings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-fortnite-border/50">
-          <StatusRow icon={<Server className="w-4 h-4" />} label="Serveur"
-            value={`Port ${status?.port ?? 3001}`} ok={true} />
-          <StatusRow icon={<Twitch className="w-4 h-4" />} label="Config Twitch"
-            value={status?.twitchConfigured ? 'Configuré' : 'Non configuré'}
-            ok={status?.twitchConfigured ?? false} />
+          <StatusRow icon={<Server className="w-4 h-4" />} label="App Twitch"
+            value={status?.appConfigured ? 'Configurée' : 'Non configurée'}
+            ok={status?.appConfigured ?? false} />
+          <StatusRow icon={<Twitch className="w-4 h-4" />} label="Connexion Twitch"
+            value={authStatus?.connected ? `@${authStatus.channel}` : 'Non connecté'}
+            ok={authStatus?.connected ?? false} />
           <StatusRow icon={<Bot className="w-4 h-4" />} label="Bot Twitch"
-            value={status?.botEnabled ? 'Actif' : 'Désactivé'}
-            ok={status?.botEnabled ?? false} />
+            value={settings['bot_enabled'] === 'true' ? 'Actif' : 'Désactivé'}
+            ok={settings['bot_enabled'] === 'true'} />
           <StatusRow icon={<Zap className="w-4 h-4" />} label="Channel Points"
-            value={status?.channelPointsEnabled ? 'Actif' : 'Désactivé'}
-            ok={status?.channelPointsEnabled ?? false} />
+            value={settings['channel_points_enabled'] === 'true' ? 'Actif' : 'Désactivé'}
+            ok={settings['channel_points_enabled'] === 'true'} />
         </CardContent>
       </Card>
     </div>

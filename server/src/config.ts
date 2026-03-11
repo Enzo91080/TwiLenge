@@ -1,9 +1,10 @@
 // =============================================================
 // CONFIGURATION DU SERVEUR
 // =============================================================
-// Variables d'infrastructure uniquement (port, URLs, MongoDB).
-// La configuration Twitch est stockee dans la base de donnees
-// et configurable depuis l'interface Settings.
+// Variables d'infrastructure + credentials Twitch app-level.
+// En multi-tenant, TWITCH_CLIENT_ID et TWITCH_CLIENT_SECRET
+// sont geres par l'operateur dans .env (une seule app Twitch
+// pour tous les streameurs).
 // =============================================================
 
 import dotenv from 'dotenv'
@@ -38,6 +39,10 @@ export const config = {
   },
 
   OVERLAY_URL: process.env.OVERLAY_URL ?? 'http://localhost:5174',
+
+  // Credentials Twitch app-level (operateur uniquement, dans .env)
+  TWITCH_CLIENT_ID: process.env.TWITCH_CLIENT_ID ?? '',
+  TWITCH_CLIENT_SECRET: process.env.TWITCH_CLIENT_SECRET ?? '',
 
   // Twitch OAuth redirect URL
   get AUTH_CALLBACK_URL() {

@@ -95,32 +95,19 @@ export const api = {
 
   status: {
     get: () => request<{
-      twitchConfigured: boolean
-      twitchChannel: string | null
-      botEnabled: boolean
-      channelPointsEnabled: boolean
-      port: number
+      appConfigured: boolean
       authCallbackUrl: string
     }>('/status'),
   },
 
   auth: {
-    // Statut de la session dashboard (cookie)
     session: () => authRequest<{
-      authenticated: boolean; login?: string; twitchConfigured?: boolean
+      authenticated: boolean; login?: string
     }>('/auth/session'),
-    // Statut du bot Twitch (tokens OAuth)
     status: () => authRequest<{
       connected: boolean; channel?: string; login?: string; profileImageUrl?: string | null; reason?: string
     }>('/auth/status'),
-    twitchUrl: '/auth/twitch',
     logout: () => authRequest<{ success: boolean }>('/auth/logout', { method: 'POST' }),
     sessionLogout: () => authRequest<{ success: boolean }>('/auth/session/logout', { method: 'POST' }),
-    // Setup initial (public, uniquement si pas encore configure)
-    setup: (data: { clientId: string; clientSecret: string }) =>
-      request<{ success: boolean }>('/setup', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
   },
 }

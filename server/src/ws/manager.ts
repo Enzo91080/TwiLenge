@@ -1,69 +1,63 @@
 // =============================================================
-// GESTIONNAIRE WEBSOCKET
+// GESTIONNAIRE WEBSOCKET — MULTI-TENANT
 // =============================================================
-// Gere toutes les connexions WebSocket ouvertes.
-// Quand quelque chose change (defi active, timer, etc.),
-// on appelle broadcast() pour informer tous les clients connectes
-// (dashboard, overlay, etc.) en meme temps.
+// Chaque socket est associe a un streamerId.
+// broadcast() et broadcastState() n'envoient qu'aux clients
+// du meme streamer.
 // =============================================================
 
 import type { WSEvent, AppState } from '@challenge-hub/shared'
-import { state } from '../state.js'
+import { getState } from '../state.js'
 
-// Ensemble de tous les clients WebSocket connectes
-const clients = new Set<any>()
+// socket -> streamerId
+const clients = new Map<any, string>()
 
-// Enregistrer un nouveau client quand il se connecte
-export function addClient(socket: any) {
-  clients.add(socket)
+export function addClient(socket: any, streamerId: string): void {
+  clients.set(socket, streamerId)
 
-  // Envoyer l'etat actuel immediatement au nouveau client
+  // Envoyer l'etat actuel immediatement
   sendToClient(socket, {
     type: 'STATE_SYNC',
-    data: getFullState(),
+    data: getFullState(streamerId),
   })
 
-  // Retirer le client quand il se deconnecte
   socket.on('close', () => {
     clients.delete(socket)
   })
 }
 
-// Envoyer un evenement a tous les clients connectes
-export function broadcast(event: WSEvent) {
+export function broadcast(streamerId: string, event: WSEvent): void {
   const message = JSON.stringify(event)
-  for (const client of clients) {
-    if (client.readyState === 1) { // 1 = OPEN
-      client.send(message)
+  for (const [socket, sid] of clients) {
+    if (sid === streamerId && socket.readyState === 1) {
+      socket.send(message)
     }
   }
 }
 
-// Envoyer un evenement a un seul client
-function sendToClient(socket: any, event: WSEvent) {
+function sendToClient(socket: any, event: WSEvent): void {
   if (socket.readyState === 1) {
     socket.send(JSON.stringify(event))
   }
 }
 
-// Diffuser l'etat complet (utilise apres chaque changement important)
-export function broadcastState() {
-  broadcast({
+export function broadcastState(streamerId: string): void {
+  broadcast(streamerId, {
     type: 'STATE_SYNC',
-    data: getFullState(),
+    data: getFullState(streamerId),
   })
 }
 
-// Construire l'etat complet depuis le state en memoire
-export function getFullState(): AppState {
+export function getFullState(streamerId: string): AppState {
+  const s = getState(streamerId)
   return {
-    session: state.session,
-    activeChallenge: state.activeChallenge,
-    pendingChallenges: state.pendingChallenges,
-    completedCount: state.completedCount,
-    failedCount: state.failedCount,
-    skippedCount: state.skippedCount,
-    timerSecondsLeft: state.timerSecondsLeft,
-    votes: state.votes,
+    session: s.session,
+    activeChallenge: s.activeChallenge,
+    pendingChallenges: s.pendingChallenges,
+    completedCount: s.completedCount,
+    failedCount: s.failedCount,
+    skippedCount: s.skippedCount,
+    timerSecondsLeft: s.timerSecondsLeft,
+    votes: s.votes,
   }
 }

@@ -1,26 +1,24 @@
 // =============================================================
-// ROUTES : AUTHENTIFICATION
+// ROUTES : AUTHENTIFICATION — MULTI-TENANT
 // =============================================================
-// --- Dashboard (session cookie) ---
-// GET  /auth/dashboard          - redirige vers Twitch pour login dashboard
-// GET  /auth/session            - statut de la session dashboard (public)
-// POST /auth/session/logout     - deconnexion dashboard
-//
-// --- Bot Twitch (tokens OAuth) ---
-// GET  /auth/twitch             - redirige vers Twitch pour autoriser le bot
-// GET  /auth/callback           - callback commun (state=dashboard|bot)
-// GET  /auth/status             - statut de connexion du bot
-// POST /auth/logout             - deconnecter le bot
+// GET  /auth/dashboard      - redirige vers Twitch OAuth
+// GET  /auth/session        - statut session dashboard (public)
+// POST /auth/session/logout - deconnexion dashboard
+// GET  /auth/callback       - callback OAuth Twitch
+// GET  /auth/status         - statut Twitch du streamer connecte
+// POST /auth/logout         - deconnecter le bot Twitch
 // =============================================================
 
 import type { FastifyInstance } from 'fastify'
 import { config } from '../config.js'
 import {
-  getSetting, setSetting, isTwitchConfigured,
+  getSetting, setSetting,
   createAuthSession, getAuthSession, deleteAuthSession,
+  seedStreamerDefaults,
 } from '../db/index.js'
 import { startTwitchBot, stopTwitchBot } from '../twitch/bot.js'
 import { startEventSub, stopEventSub } from '../twitch/eventsub.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const isProduction = process.env.NODE_ENV === 'production'
 
@@ -29,33 +27,25 @@ const COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax' as const,
   secure: isProduction,
-  maxAge: 7 * 24 * 60 * 60, // 7 jours en secondes
+  maxAge: 7 * 24 * 60 * 60,
 }
 
-// Scopes dashboard + bot : tout en une seule connexion
-const DASHBOARD_SCOPES = ['user:read:email', 'chat:read', 'chat:edit', 'channel:read:redemptions'].join(' ')
-
-// Scopes pour le bot seul (reconnexion depuis Settings si tokens expires)
-const BOT_SCOPES = ['chat:read', 'chat:edit', 'channel:read:redemptions'].join(' ')
+// Un seul flow OAuth : login dashboard + tokens bot en meme temps
+const ALL_SCOPES = ['chat:read', 'chat:edit', 'channel:read:redemptions'].join(' ')
 
 export async function authRoutes(fastify: FastifyInstance) {
 
-  // ============================================================
-  // DASHBOARD AUTH
-  // ============================================================
-
-  // GET /auth/dashboard - Lance le flow OAuth pour le login du dashboard
+  // GET /auth/dashboard - Lance le flow OAuth
   fastify.get('/auth/dashboard', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!await isTwitchConfigured()) {
-      return reply.redirect(`${config.WEB_URL}/?setup=true`)
+    if (!config.TWITCH_CLIENT_ID) {
+      return reply.status(500).send({ error: 'TWITCH_CLIENT_ID manquant dans .env' })
     }
 
-    const clientId = (await getSetting('twitch_client_id'))!
     const params = new URLSearchParams({
-      client_id: clientId,
+      client_id: config.TWITCH_CLIENT_ID,
       redirect_uri: config.AUTH_CALLBACK_URL,
       response_type: 'code',
-      scope: DASHBOARD_SCOPES,
+      scope: ALL_SCOPES,
       state: 'dashboard',
       force_verify: 'true',
     })
@@ -63,7 +53,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     return reply.redirect(`https://id.twitch.tv/oauth2/authorize?${params.toString()}`)
   })
 
-  // GET /auth/session - Verifie si l'utilisateur a une session dashboard active (public)
+  // GET /auth/session - Verifie la session dashboard (public)
   fastify.get('/auth/session', async (request, reply) => {
     const token = (request.cookies as Record<string, string>)?.session_token
     if (!token) return { authenticated: false }
@@ -74,8 +64,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       return { authenticated: false }
     }
 
-    const configured = await isTwitchConfigured()
-    return { authenticated: true, login: session.login, twitchConfigured: configured }
+    return { authenticated: true, login: session.login }
   })
 
   // POST /auth/session/logout - Deconnexion dashboard
@@ -86,10 +75,6 @@ export async function authRoutes(fastify: FastifyInstance) {
     return { success: true }
   })
 
-  // ============================================================
-  // CALLBACK COMMUN (dashboard + bot)
-  // ============================================================
-
   // GET /auth/callback - Twitch redirige ici apres autorisation
   fastify.get('/auth/callback', async (request, reply) => {
     const { code, error, state } = request.query as {
@@ -97,29 +82,20 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
 
     if (error || !code) {
-      const reason = error ?? 'no_code'
-      if (state === 'dashboard') {
-        return reply.redirect(`${config.WEB_URL}/?auth=error&reason=${reason}`)
-      }
-      return reply.redirect(`${config.WEB_URL}/settings?auth=error&reason=${reason}`)
+      return reply.redirect(`${config.WEB_URL}/?auth=error&reason=${error ?? 'no_code'}`)
     }
 
-    const clientId = await getSetting('twitch_client_id')
-    const clientSecret = await getSetting('twitch_client_secret')
-
-    if (!clientId || !clientSecret) {
+    if (!config.TWITCH_CLIENT_ID || !config.TWITCH_CLIENT_SECRET) {
       return reply.redirect(`${config.WEB_URL}/?auth=error&reason=no_credentials`)
     }
 
     try {
-      const scope = state === 'dashboard' ? DASHBOARD_SCOPES : BOT_SCOPES
-
       const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
+          client_id: config.TWITCH_CLIENT_ID,
+          client_secret: config.TWITCH_CLIENT_SECRET,
           code,
           grant_type: 'authorization_code',
           redirect_uri: config.AUTH_CALLBACK_URL,
@@ -130,13 +106,16 @@ export async function authRoutes(fastify: FastifyInstance) {
         access_token: string; refresh_token: string; expires_in: number
       }
 
-      if (!tokens.access_token) throw new Error('Pas de token dans la reponse Twitch')
+      if (!tokens.access_token) {
+        console.error('[Auth] Reponse Twitch:', JSON.stringify(tokens))
+        throw new Error('Pas de token dans la reponse Twitch')
+      }
 
       // Recuperer les infos du compte Twitch
       const userResponse = await fetch('https://api.twitch.tv/helix/users', {
         headers: {
           'Authorization': `Bearer ${tokens.access_token}`,
-          'Client-Id': clientId,
+          'Client-Id': config.TWITCH_CLIENT_ID,
         },
       })
       const userData = await userResponse.json() as {
@@ -145,90 +124,64 @@ export async function authRoutes(fastify: FastifyInstance) {
       const twitchUser = userData.data?.[0]
       if (!twitchUser) throw new Error('Impossible de recuperer les infos Twitch')
 
-      // Sauvegarder les tokens bot (commun aux deux flows)
-      await setSetting('twitch_access_token', tokens.access_token)
-      await setSetting('twitch_refresh_token', tokens.refresh_token)
-      await setSetting('twitch_token_expires_at', String(Date.now() + tokens.expires_in * 1000))
-      await setSetting('twitch_display_name', twitchUser.display_name)
-      await setSetting('twitch_login', twitchUser.login)
-      await setSetting('twitch_profile_image_url', twitchUser.profile_image_url)
+      const streamerId = twitchUser.login.toLowerCase()
 
-      // Demarrer le bot avec les nouveaux tokens
-      stopTwitchBot()
-      stopEventSub()
-      startTwitchBot()
-      startEventSub()
+      // Seed des defaults au premier login
+      await seedStreamerDefaults(streamerId)
 
-      // ---- FLOW DASHBOARD : creer la session + rediriger vers Settings ----
-      if (state === 'dashboard') {
-        // Enregistrer le channel de ce streamer (ecrase le precedent si changement de compte)
-        await setSetting('twitch_channel', twitchUser.login.toLowerCase())
+      // Sauvegarder les tokens et infos du streamer
+      await setSetting(streamerId, 'twitch_access_token', tokens.access_token)
+      await setSetting(streamerId, 'twitch_refresh_token', tokens.refresh_token)
+      await setSetting(streamerId, 'twitch_token_expires_at', String(Date.now() + tokens.expires_in * 1000))
+      await setSetting(streamerId, 'twitch_display_name', twitchUser.display_name)
+      await setSetting(streamerId, 'twitch_login', twitchUser.login)
+      await setSetting(streamerId, 'twitch_profile_image_url', twitchUser.profile_image_url)
+      await setSetting(streamerId, 'twitch_channel', streamerId)
 
-        const sessionToken = await createAuthSession(twitchUser.login)
-        reply.setCookie('session_token', sessionToken, COOKIE_OPTIONS)
-        return reply.redirect(`${config.WEB_URL}/settings`)
-      }
+      // Creer la session dashboard
+      const sessionToken = await createAuthSession(streamerId)
+      reply.setCookie('session_token', sessionToken, COOKIE_OPTIONS)
 
-      // ---- FLOW BOT SEUL (reconnexion depuis Settings) ----
-      return reply.redirect(`${config.WEB_URL}/settings?auth=success`)
+      // Demarrer bot et EventSub pour ce streamer
+      stopTwitchBot(streamerId)
+      stopEventSub(streamerId)
+      await startTwitchBot(streamerId)
+      await startEventSub(streamerId)
+
+      return reply.redirect(`${config.WEB_URL}/settings`)
 
     } catch (err) {
-      console.error("[Auth] Erreur callback:", err)
-      const redirect = state === 'dashboard' ? `${config.WEB_URL}/` : `${config.WEB_URL}/settings`
-      return reply.redirect(`${redirect}?auth=error&reason=token_exchange`)
+      console.error('[Auth] Erreur callback:', err)
+      return reply.redirect(`${config.WEB_URL}/?auth=error&reason=token_exchange`)
     }
   })
 
-  // ============================================================
-  // BOT TWITCH AUTH (inchange, accessible aux utilisateurs authentifies)
-  // ============================================================
-
-  // GET /auth/twitch - Lance le flow OAuth pour le bot
-  fastify.get('/auth/twitch', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    if (!await isTwitchConfigured()) {
-      return reply.status(400).send({
-        error: 'Twitch non configure. Remplis la configuration dans les Parametres.',
-      })
-    }
-
-    const clientId = (await getSetting('twitch_client_id'))!
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: config.AUTH_CALLBACK_URL,
-      response_type: 'code',
-      scope: BOT_SCOPES,
-      state: 'bot',
-      force_verify: 'true',
-    })
-
-    return reply.redirect(`https://id.twitch.tv/oauth2/authorize?${params.toString()}`)
-  })
-
-  // GET /auth/status - Statut de connexion du bot (utilise dans Settings)
-  fastify.get('/auth/status', async () => {
-    const token = await getSetting('twitch_access_token')
-    const expiresAt = await getSetting('twitch_token_expires_at')
+  // GET /auth/status - Statut Twitch du streamer connecte (protege)
+  fastify.get('/auth/status', { preHandler: requireAuth }, async (request) => {
+    const streamerId = (request as any).twitchLogin as string
+    const token = await getSetting(streamerId, 'twitch_access_token')
+    const expiresAt = await getSetting(streamerId, 'twitch_token_expires_at')
 
     if (!token) return { connected: false, reason: 'no_token' }
     const expiresAtMs = expiresAt ? parseInt(expiresAt) : NaN
     if (!isNaN(expiresAtMs) && Date.now() > expiresAtMs) return { connected: false, reason: 'expired' }
 
-    const channel = await getSetting('twitch_channel')
     return {
       connected: true,
-      channel: await getSetting('twitch_display_name') || await getSetting('twitch_login') || channel,
-      login: await getSetting('twitch_login') || channel,
-      profileImageUrl: await getSetting('twitch_profile_image_url') || null,
+      channel: await getSetting(streamerId, 'twitch_channel'),
+      login: await getSetting(streamerId, 'twitch_login'),
+      profileImageUrl: await getSetting(streamerId, 'twitch_profile_image_url') || null,
     }
   })
 
-  // POST /auth/logout - Deconnecter le bot
-  fastify.post('/auth/logout', async () => {
-    await setSetting('twitch_access_token', '')
-    await setSetting('twitch_refresh_token', '')
-    await setSetting('twitch_token_expires_at', '')
-    stopTwitchBot()
-    stopEventSub()
+  // POST /auth/logout - Deconnecter le bot du streamer (protege)
+  fastify.post('/auth/logout', { preHandler: requireAuth }, async (request) => {
+    const streamerId = (request as any).twitchLogin as string
+    await setSetting(streamerId, 'twitch_access_token', '')
+    await setSetting(streamerId, 'twitch_refresh_token', '')
+    await setSetting(streamerId, 'twitch_token_expires_at', '')
+    stopTwitchBot(streamerId)
+    stopEventSub(streamerId)
     return { success: true }
   })
 }
