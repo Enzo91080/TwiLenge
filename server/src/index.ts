@@ -23,6 +23,7 @@ import { challengeRoutes } from './routes/challenges.js'
 import { sessionRoutes } from './routes/sessions.js'
 import { settingsRoutes, publicSettingsRoutes } from './routes/settings.js'
 import { authRoutes } from './routes/auth.js'
+import { debugRoutes } from './routes/debug.js'
 import { addClient } from './ws/manager.js'
 import { requireAuth } from './middleware/auth.js'
 import { startTwitchBot } from './twitch/bot.js'
@@ -87,6 +88,9 @@ async function main() {
     await app.register(challengeRoutes, { prefix: '/api' })
     await app.register(sessionRoutes, { prefix: '/api' })
     await app.register(settingsRoutes, { prefix: '/api' })
+    if (!isProduction) {
+      await app.register(debugRoutes, { prefix: '/api' })
+    }
   })
 
   // WebSocket : cookie session (dashboard) ou ?token=ws_token&streamer=login (overlay OBS)

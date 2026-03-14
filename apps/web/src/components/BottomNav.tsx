@@ -6,13 +6,13 @@
 // =============================================================
 
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, List, History, Settings } from 'lucide-react'
+import { LayoutDashboard, List, Trophy, Settings } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 const allNavItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, requiresAuth: true },
   { to: '/challenges', label: 'Défis', icon: List, requiresAuth: true },
-  { to: '/history', label: 'Historique', icon: History, requiresAuth: true },
+  { to: '/top-viewers', label: 'Top', icon: Trophy, requiresAuth: true },
   { to: '/settings', label: 'Réglages', icon: Settings, requiresAuth: false },
 ]
 

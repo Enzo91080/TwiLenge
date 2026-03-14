@@ -2,13 +2,15 @@
 // STYLE BANNIÈRE — Bande horizontale large, idéal haut/bas de scène
 // =============================================================
 
-import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
+import { DIFFICULTY_LABELS } from '@challenge-hub/shared'
 import type { StyleProps } from './types'
-import { CATEGORY_COLORS, DIFFICULTY_COLORS, formatTime } from './colors'
+import { DIFFICULTY_COLORS, formatTime } from './colors'
+
+const ACCENT = '#F0C540'
 
 export function StyleBanner({ challenge: c, timerSecondsLeft, theme }: StyleProps) {
   const isDark    = theme === 'dark'
-  const accent    = CATEGORY_COLORS[c.category]
+  const accent    = ACCENT
   const diffColor = DIFFICULTY_COLORS[c.difficulty]
 
   const isTimerLow    = timerSecondsLeft !== null && timerSecondsLeft <= 30
@@ -59,20 +61,19 @@ export function StyleBanner({ challenge: c, timerSecondsLeft, theme }: StyleProp
         {/* Barre verticale accent */}
         <div style={{ width: '3px', height: '38px', background: accent, borderRadius: '2px', flexShrink: 0 }} />
 
-        {/* Bloc gauche : catégorie + titre */}
+        {/* Bloc gauche : statut + description */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: '9px', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase',
-            color: accent, marginBottom: '4px',
+            color: '#4ADE80', marginBottom: '4px',
           }}>
-            {CATEGORY_LABELS[c.category]}
+            En cours
           </div>
           <div style={{
-            fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em',
-            color: textPrimary, lineHeight: 1.15,
+            fontSize: '14px', color: textPrimary, lineHeight: 1.25,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            {c.title}
+            {c.description || '—'}
           </div>
         </div>
 

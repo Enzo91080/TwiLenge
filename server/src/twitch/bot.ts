@@ -173,6 +173,29 @@ export async function startTwitchBot(streamerId: string): Promise<void> {
         chatClient.say(chatChannel, 'Defi passe !')
         return
       }
+
+      if (cmd === 'roue' && await isCmdEnabled('roue')) {
+        if (!s.session) { chatClient.say(chatChannel, 'BOT: Aucune session en cours.'); return }
+        const pending = s.pendingChallenges.filter((sc) => sc.status === 'pending')
+        if (pending.length === 0) { chatClient.say(chatChannel, 'BOT: Plus aucun defi en attente.'); return }
+        if (s.activeChallenge) {
+          await updateSessionChallengeStatus(streamerId, s.activeChallenge.id, 'skipped')
+          s.skippedCount++
+          stopTimer(streamerId)
+          s.timerSecondsLeft = null
+        }
+        const random = pending[Math.floor(Math.random() * pending.length)]
+        const activated = (await updateSessionChallengeStatus(streamerId, random.id, 'active'))!
+        // Snapshot AVANT de filtrer pour que l'overlay ait la liste complète
+        const challengesSnapshot = [...s.pendingChallenges]
+        s.activeChallenge = activated
+        s.pendingChallenges = s.pendingChallenges.filter((sc) => sc.id !== random.id)
+        s.votes = {}
+        broadcast(streamerId, { type: 'WHEEL_SPUN', data: { activated, challenges: challengesSnapshot } })
+        broadcastState(streamerId)
+        chatClient.say(chatChannel, `La roue a selectionne : ${activated.challenge.description}`)
+        return
+      }
     })
 
   } catch (err) {

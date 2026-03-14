@@ -21,7 +21,12 @@
       "Bash(tasklist:*)",
       "Bash(timeout 15 npx tsx:*)",
       "Bash(grep:*)",
-      "Bash(xargs -I{} powershell -Command \"Stop-Process -Id {} -Force -ErrorAction SilentlyContinue\")"
+      "Bash(xargs -I{} powershell -Command \"Stop-Process -Id {} -Force -ErrorAction SilentlyContinue\")",
+      "Bash(git commit:*)",
+      "Bash(git:*)",
+      "Bash(cd \"C:\\\\Users\\\\enzoa\\\\Projets\\\\Fortnite\\\\apps\\\\overlay\" && node_modules/.bin/tsc --noEmit 2>&1 | head -50)",
+      "Bash(cd \"C:\\\\Users\\\\enzoa\\\\Projets\\\\Fortnite\\\\apps\\\\web\" && node_modules/.bin/tsc --noEmit 2>&1 | head -50)",
+      "Bash(cd \"C:\\\\Users\\\\enzoa\\\\Projets\\\\Fortnite\\\\apps\\\\web\" && node_modules/.bin/tsc --noEmit 2>&1 | head -30)"
     ]
   }
 }

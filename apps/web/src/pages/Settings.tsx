@@ -18,8 +18,16 @@ import {
   Lock,
   ChevronDown,
   Monitor,
+  FlaskConical,
+  Shuffle,
+  Plus,
+  Trash2,
 } from "lucide-react";
-import { OVERLAY_STYLES, type OverlayStyle } from "@challenge-hub/shared";
+import {
+  OVERLAY_STYLES,
+  type OverlayStyle,
+  type ChannelPointsMapping,
+} from "@challenge-hub/shared";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
 import {
@@ -29,6 +37,7 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { Switch } from "../components/ui/switch";
+import { Input } from "../components/ui/input";
 import { cn } from "../lib/utils";
 
 // =============================================================
@@ -281,6 +290,47 @@ export function Settings() {
 
   const [selectedStyle, setSelectedStyle] = useState<OverlayStyle>("gaming");
 
+  // --- Mappings Channel Points ---
+  const parseMappings = (raw: string | undefined): ChannelPointsMapping[] => {
+    try { return raw ? JSON.parse(raw) : [] } catch { return [] }
+  };
+
+  const mappings = parseMappings(settings["channel_points_mappings"]);
+
+  const saveMappings = (next: ChannelPointsMapping[]) =>
+    settingsMut.mutate({ channel_points_mappings: JSON.stringify(next) });
+
+  const deleteMapping = (index: number) =>
+    saveMappings(mappings.filter((_, i) => i !== index));
+
+  // Formulaire d'ajout
+  const [newRewardName, setNewRewardName] = useState("");
+
+  const addMapping = () => {
+    if (!newRewardName.trim()) return;
+    saveMappings([...mappings, { rewardName: newRewardName.trim() }]);
+    setNewRewardName("");
+  };
+
+  // --- Simulation (dev) ---
+  const [simulateRewardName, setSimulateRewardName] = useState("");
+  const [simulateResult, setSimulateResult] = useState<string | null>(null);
+
+  const simulateMut = useMutation({
+    mutationFn: () => api.debug.simulateChannelPoints(
+      simulateRewardName || mappings[0]?.rewardName,
+      "SimulatedViewer",
+    ),
+    onSuccess: (data) => {
+      setSimulateResult(`✓ Défi activé : "${data.challengeDescription}"`);
+      setTimeout(() => setSimulateResult(null), 4000);
+    },
+    onError: (err: Error) => {
+      setSimulateResult(`✗ ${err.message}`);
+      setTimeout(() => setSimulateResult(null), 4000);
+    },
+  });
+
   const overlayUrl = (extra?: string) => {
     const styleParam = `style=${selectedStyle}`;
     const p = [overlayBaseParams, styleParam, extra].filter(Boolean).join("&");
@@ -481,6 +531,111 @@ export function Settings() {
               disabled={settingsMut.isPending}
             />
           </div>
+
+          {/* Mappings Channel Points — visible uniquement si Channel Points actifs */}
+          {settings["channel_points_enabled"] === "true" && (
+            <div className="pt-1 pb-2 space-y-3">
+              <p className="text-xs font-semibold text-fortnite-muted uppercase tracking-wider">
+                Récompenses configurées
+              </p>
+
+              {/* Liste des mappings existants */}
+              {mappings.length === 0 ? (
+                <p className="text-xs text-fortnite-muted/60 italic">
+                  Aucune récompense configurée.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {mappings.map((m, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2 p-2.5 rounded-lg bg-fortnite-darker border border-fortnite-border"
+                    >
+                      <Shuffle className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-white font-medium truncate">
+                          {m.rewardName}
+                        </div>
+                        <div className="text-xs text-fortnite-muted/70">Roue aléatoire</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 h-7 w-7 text-fortnite-muted/50 hover:text-red-400"
+                        onClick={() => deleteMapping(i)}
+                        disabled={settingsMut.isPending}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Formulaire d'ajout */}
+              <div className="space-y-2 pt-1">
+                <p className="text-xs font-semibold text-fortnite-muted uppercase tracking-wider">
+                  Ajouter une récompense
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={newRewardName}
+                    onChange={(e) => setNewRewardName(e.target.value)}
+                    placeholder="Nom exact de la récompense Twitch"
+                    className="flex-1"
+                    onKeyDown={(e) => e.key === "Enter" && addMapping()}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={addMapping}
+                    disabled={settingsMut.isPending || !newRewardName.trim()}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <p className="text-xs text-fortnite-muted/60">
+                  Le nom doit correspondre exactement à la récompense créée sur Twitch (insensible à la casse).
+                </p>
+              </div>
+
+              {/* Bouton de simulation — dev seulement */}
+              {import.meta.env.DEV && mappings.length > 0 && (
+                <div className="pt-1 space-y-1.5 border-t border-fortnite-border/50">
+                  <p className="text-xs font-semibold text-fortnite-muted uppercase tracking-wider pt-2">
+                    Test (dev uniquement)
+                  </p>
+                  <div className="space-y-2">
+                    <select
+                      value={simulateRewardName}
+                      onChange={(e) => setSimulateRewardName(e.target.value)}
+                      className="w-full rounded-lg border border-fortnite-border bg-fortnite-darker text-white text-sm px-3 py-1.5 focus:outline-none focus:border-fortnite-yellow/50"
+                    >
+                      {mappings.map((m, i) => (
+                        <option key={i} value={m.rewardName}>{m.rewardName}</option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => simulateMut.mutate()}
+                      disabled={simulateMut.isPending}
+                    >
+                      <FlaskConical className="w-3.5 h-3.5" />
+                      Simuler
+                    </Button>
+                  </div>
+                  {simulateResult && (
+                    <p className={cn(
+                      "text-xs font-medium",
+                      simulateResult.startsWith("✓") ? "text-green-400" : "text-red-400",
+                    )}>
+                      {simulateResult}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Commandes du bot */}
@@ -517,6 +672,7 @@ export function Settings() {
                 desc: "Échouer le défi",
               },
               { key: "skip", cmd: "!skip", who: "Toi", desc: "Passer le défi" },
+              { key: "roue", cmd: "!roue", who: "Toi", desc: "Lancer la roue aléatoire" },
             ].map(({ key, cmd, who, desc }) => {
               const enabled = isCmdEnabled(key);
               return (

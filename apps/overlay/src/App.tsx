@@ -15,7 +15,8 @@ import { useEffect, useState } from 'react'
 import { useWebSocket } from './hooks/useWebSocket'
 import { ChallengeDisplay } from './components/ChallengeDisplay'
 import { ResultFlash } from './components/ResultFlash'
-import type { OverlayParams } from '@challenge-hub/shared'
+import { SpinAnimation } from './components/SpinAnimation'
+import type { OverlayParams, SessionChallenge } from '@challenge-hub/shared'
 
 // Lire les parametres depuis l'URL
 function getOverlayParams(): OverlayParams {
@@ -43,31 +44,49 @@ export default function App() {
 
   // Flash de resultat (complete/echoue)
   const [flash, setFlash] = useState<'completed' | 'failed' | null>(null)
+  // Animation roue (WHEEL_SPUN)
+  const [spinResult, setSpinResult] = useState<SessionChallenge | null>(null)
+  const [spinChallenges, setSpinChallenges] = useState<SessionChallenge[]>([])
 
   useEffect(() => {
     if (!lastEvent) return
-    if (lastEvent.type === 'CHALLENGE_COMPLETED') {
+    if (lastEvent.type === 'WHEEL_SPUN') {
+      // La liste est embarquée dans l'événement — pas de dépendance sur appState
+      setSpinChallenges(lastEvent.data.challenges)
+      setSpinResult(lastEvent.data.activated)
+    } else if (lastEvent.type === 'CHALLENGE_COMPLETED') {
+      setSpinResult(null)
       setFlash('completed')
       setTimeout(() => setFlash(null), 2000)
     } else if (lastEvent.type === 'CHALLENGE_FAILED') {
+      setSpinResult(null)
       setFlash('failed')
       setTimeout(() => setFlash(null), 2000)
     }
   }, [lastEvent])
 
-  // Si aucun defi actif et pas de flash, ne rien afficher
-  if (!activeChallenge && !flash) return null
+  // Si aucun defi actif, pas de flash et pas de spin, ne rien afficher
+  if (!activeChallenge && !flash && !spinResult) return null
 
   return (
     <div
       className={`fixed ${POSITION_CLASSES[params.position]}`}
       style={{ transform: `scale(${params.scale})`, transformOrigin: getTransformOrigin(params.position) }}
     >
+      {/* Slot machine (prioritaire) */}
+      {spinResult && spinChallenges.length > 0 && (
+        <SpinAnimation
+          challenges={spinChallenges}
+          result={spinResult}
+          onComplete={() => setSpinResult(null)}
+        />
+      )}
+
       {/* Flash de resultat */}
-      {flash && <ResultFlash type={flash} />}
+      {flash && !spinResult && <ResultFlash type={flash} />}
 
       {/* Defi en cours */}
-      {activeChallenge && !flash && (
+      {activeChallenge && !flash && !spinResult && (
         <ChallengeDisplay
           style={params.style}
           challenge={activeChallenge.challenge}

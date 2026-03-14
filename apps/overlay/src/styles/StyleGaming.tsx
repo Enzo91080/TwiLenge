@@ -2,15 +2,16 @@
 // STYLE GAMING — Card sombre avec coin coupé, style HUD gaming
 // =============================================================
 
-import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
+import { DIFFICULTY_LABELS } from '@challenge-hub/shared'
 import type { StyleProps } from './types'
-import { CATEGORY_COLORS, DIFFICULTY_COLORS, formatTime } from './colors'
+import { DIFFICULTY_COLORS, formatTime } from './colors'
 
 const CLIP_PATH = 'polygon(0% 0%, calc(100% - 22px) 0%, 100% 22px, 100% 100%, 0% 100%)'
+const ACCENT = '#F0C540'
 
 export function StyleGaming({ challenge: c, timerSecondsLeft, theme }: StyleProps) {
   const isDark = theme === 'dark'
-  const accent = CATEGORY_COLORS[c.category]
+  const accent = ACCENT
   const diffColor = DIFFICULTY_COLORS[c.difficulty]
 
   const isTimerRunning = timerSecondsLeft !== null
@@ -61,41 +62,21 @@ export function StyleGaming({ challenge: c, timerSecondsLeft, theme }: StyleProp
 
         <div style={{ padding: '14px 16px 16px', position: 'relative' }}>
 
-          {/* Header : live dot + catégorie */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-              <div className="dot-pulse" style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#4ADE80', flexShrink: 0 }} />
-              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#4ADE80' }}>
-                Défi en cours
-              </span>
-            </div>
-            <span style={{
-              fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-              color: accent, background: `${accent}18`, border: `1px solid ${accent}45`,
-              padding: '2px 8px', borderRadius: '3px',
-            }}>
-              {CATEGORY_LABELS[c.category]}
+          {/* Header : live dot */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '10px' }}>
+            <div className="dot-pulse" style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#4ADE80', flexShrink: 0 }} />
+            <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#4ADE80' }}>
+              Défi en cours
             </span>
           </div>
 
           {/* Séparation */}
           <div style={{ height: '1px', background: `linear-gradient(90deg, ${accent}50, transparent)`, marginBottom: '10px' }} />
 
-          {/* Titre */}
-          <div style={{
-            fontSize: '17px', fontWeight: 800, lineHeight: 1.2, color: textPrimary,
-            textTransform: 'uppercase', letterSpacing: '0.025em',
-            marginBottom: c.description ? '6px' : '12px',
-          }}>
-            {c.title}
-          </div>
-
           {/* Description */}
-          {c.description && (
-            <div style={{ fontSize: '12px', lineHeight: 1.5, color: textSecondary, marginBottom: '12px' }}>
-              {c.description}
-            </div>
-          )}
+          <div style={{ fontSize: '14px', lineHeight: 1.5, color: textPrimary, marginBottom: '12px' }}>
+            {c.description || '—'}
+          </div>
 
           {/* Barre de progression */}
           {isTimerRunning && c.timerSeconds && (

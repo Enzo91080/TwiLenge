@@ -12,6 +12,7 @@ import {
   getAllChallenges,
   addChallengeToSession,
   updateSessionChallengeStatus,
+  getRedemptions,
 } from '../db/index.js'
 import { getState, resetState, startTimer, stopTimer } from '../state.js'
 import { broadcast, broadcastState, getFullState } from '../ws/manager.js'
@@ -183,11 +184,13 @@ export async function sessionRoutes(fastify: FastifyInstance) {
     const activated = await updateSessionChallengeStatus(streamerId, random.id, 'active')
     if (!activated) return reply.status(404).send({ error: 'Defi introuvable.' })
 
+    // Snapshot AVANT de filtrer pour que l'overlay ait la liste complète
+    const challengesSnapshot = [...s.pendingChallenges]
     s.activeChallenge = activated
     s.pendingChallenges = s.pendingChallenges.filter((sc) => sc.id !== random.id)
     s.votes = {}
 
-    broadcast(streamerId, { type: 'WHEEL_SPUN', data: activated })
+    broadcast(streamerId, { type: 'WHEEL_SPUN', data: { activated, challenges: challengesSnapshot } })
     broadcastState(streamerId)
 
     if (activated.challenge.timerSeconds) {
@@ -216,6 +219,14 @@ export async function sessionRoutes(fastify: FastifyInstance) {
     s.timerSecondsLeft = null
     broadcast(streamerId, { type: 'TIMER_STOPPED', data: null })
     return { success: true }
+  })
+
+  // GET /api/redemptions?sessionId=X  (sessionId optionnel)
+  fastify.get('/redemptions', async (request) => {
+    const streamerId = (request as any).twitchLogin as string
+    const { sessionId } = request.query as { sessionId?: string }
+    const numId = sessionId ? parseInt(sessionId) : undefined
+    return getRedemptions(streamerId, isNaN(numId as number) ? undefined : numId)
   })
 
   // GET /api/history

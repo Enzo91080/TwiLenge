@@ -2,13 +2,15 @@
 // STYLE MINIMAL — Fond semi-transparent épuré, aucun effet
 // =============================================================
 
-import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
+import { DIFFICULTY_LABELS } from '@challenge-hub/shared'
 import type { StyleProps } from './types'
-import { CATEGORY_COLORS, DIFFICULTY_COLORS, formatTime } from './colors'
+import { DIFFICULTY_COLORS, formatTime } from './colors'
+
+const ACCENT = '#F0C540'
 
 export function StyleMinimal({ challenge: c, timerSecondsLeft, theme }: StyleProps) {
   const isDark     = theme === 'dark'
-  const accent     = CATEGORY_COLORS[c.category]
+  const accent     = ACCENT
   const diffColor  = DIFFICULTY_COLORS[c.difficulty]
 
   const isTimerLow    = timerSecondsLeft !== null && timerSecondsLeft <= 30
@@ -37,13 +39,10 @@ export function StyleMinimal({ challenge: c, timerSecondsLeft, theme }: StylePro
     >
       <div style={{ padding: '11px 14px 12px' }}>
 
-        {/* Titre + timer sur la même ligne */}
+        {/* Description + timer sur la même ligne */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-          <div style={{
-            fontSize: '14px', fontWeight: 700, lineHeight: 1.25,
-            color: textPrimary, flex: 1,
-          }}>
-            {c.title}
+          <div style={{ fontSize: '13px', lineHeight: 1.4, color: textPrimary, flex: 1 }}>
+            {c.description || '—'}
           </div>
 
           {timerSecondsLeft !== null && (
@@ -66,13 +65,6 @@ export function StyleMinimal({ challenge: c, timerSecondsLeft, theme }: StylePro
           )}
         </div>
 
-        {/* Description */}
-        {c.description && (
-          <div style={{ fontSize: '11px', color: textMuted, lineHeight: 1.4, marginBottom: '8px' }}>
-            {c.description}
-          </div>
-        )}
-
         {/* Barre de progression */}
         {timerSecondsLeft !== null && c.timerSeconds && (
           <div style={{ marginBottom: '8px' }}>
@@ -86,16 +78,10 @@ export function StyleMinimal({ challenge: c, timerSecondsLeft, theme }: StylePro
           </div>
         )}
 
-        {/* Footer : catégorie + difficulté */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: accent }}>
-            {CATEGORY_LABELS[c.category]}
-          </span>
-          <span style={{ fontSize: '9px', color: textMuted }}>·</span>
-          <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: diffColor }}>
-            {DIFFICULTY_LABELS[c.difficulty]}
-          </span>
-        </div>
+        {/* Footer : difficulté */}
+        <span style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: diffColor }}>
+          {DIFFICULTY_LABELS[c.difficulty]}
+        </span>
       </div>
     </div>
   )

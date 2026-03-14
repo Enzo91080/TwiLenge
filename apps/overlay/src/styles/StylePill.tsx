@@ -2,13 +2,14 @@
 // STYLE PILL — Pastille compacte, très discrète, une seule ligne
 // =============================================================
 
-import { CATEGORY_LABELS } from '@challenge-hub/shared'
 import type { StyleProps } from './types'
-import { CATEGORY_COLORS, formatTime } from './colors'
+import { formatTime } from './colors'
+
+const ACCENT = '#F0C540'
 
 export function StylePill({ challenge: c, timerSecondsLeft, theme }: StyleProps) {
   const isDark  = theme === 'dark'
-  const accent  = CATEGORY_COLORS[c.category]
+  const accent  = ACCENT
 
   const isTimerLow = timerSecondsLeft !== null && timerSecondsLeft <= 30
   const timerColor = isTimerLow ? '#EF4444' : accent
@@ -41,23 +42,12 @@ export function StylePill({ challenge: c, timerSecondsLeft, theme }: StyleProps)
         style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ADE80', flexShrink: 0 }}
       />
 
-      {/* Label catégorie (petit, couleur accent) */}
+      {/* Description (tronquée si trop long) */}
       <span style={{
-        fontSize: '9px', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: accent, flexShrink: 0,
-      }}>
-        {CATEGORY_LABELS[c.category]}
-      </span>
-
-      {/* Séparateur */}
-      <div style={{ width: '1px', height: '14px', background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)', flexShrink: 0 }} />
-
-      {/* Titre (tronqué si trop long) */}
-      <span style={{
-        fontSize: '12px', fontWeight: 700, color: textColor,
+        fontSize: '12px', color: textColor,
         overflow: 'hidden', textOverflow: 'ellipsis', flex: 1,
       }}>
-        {c.title}
+        {c.description || '—'}
       </span>
 
       {/* Timer */}

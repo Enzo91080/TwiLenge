@@ -6,8 +6,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, XCircle, SkipForward, Timer, Play, Square, Target } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAppState } from '../lib/context'
-import { formatTime, difficultyColor, categoryColor, cn } from '../lib/utils'
-import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
+import { formatTime, difficultyColor, cn } from '../lib/utils'
+import { DIFFICULTY_LABELS } from '@challenge-hub/shared'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Card, CardContent } from './ui/card'
@@ -56,12 +56,9 @@ export function ActiveChallenge() {
           <span className="text-xs font-bold text-green-400 uppercase tracking-widest">En cours</span>
         </div>
 
-        {/* Badges + titre */}
+        {/* Badges + description */}
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">
-            <span className={cn('badge border text-xs', categoryColor(c.category))}>
-              {CATEGORY_LABELS[c.category]}
-            </span>
             <span className={cn('badge border text-xs', difficultyColor(c.difficulty))}>
               {DIFFICULTY_LABELS[c.difficulty]}
             </span>
@@ -72,7 +69,6 @@ export function ActiveChallenge() {
               </Badge>
             )}
           </div>
-          <h2 className="text-lg md:text-xl font-bold text-white leading-tight">{c.title}</h2>
           {c.description && (
             <p className="text-sm text-fortnite-muted leading-relaxed">{c.description}</p>
           )}

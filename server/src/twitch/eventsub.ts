@@ -7,12 +7,91 @@
 import { ApiClient } from '@twurple/api'
 import { RefreshingAuthProvider } from '@twurple/auth'
 import { EventSubWsListener } from '@twurple/eventsub-ws'
-import { getSetting, setSetting, updateSessionChallengeStatus } from '../db/index.js'
+import type { ChannelPointsMapping } from '@challenge-hub/shared'
+import { getSetting, setSetting, updateSessionChallengeStatus, addRedemption } from '../db/index.js'
 import { getState, stopTimer } from '../state.js'
 import { broadcastState, broadcast } from '../ws/manager.js'
 import { config } from '../config.js'
 
 const listeners = new Map<string, EventSubWsListener>()
+
+// =============================================================
+// LOGIQUE DE RACHAT — appelee par EventSub ET par le debug endpoint
+// =============================================================
+// Retourne false si les conditions ne sont pas reunies (pas de session,
+// plus de defis en attente, etc.), true si un defi a ete active.
+// =============================================================
+
+export async function handleChannelPointsRedemption(
+  streamerId: string,
+  rewardName: string,
+  userName: string,
+): Promise<{ success: false; reason: string } | { success: true; challengeDescription: string }> {
+  // Charger les mappings configures
+  const raw = await getSetting(streamerId, 'channel_points_mappings')
+  const mappings: ChannelPointsMapping[] = raw ? JSON.parse(raw) : []
+
+  const mapping = mappings.find((m) => m.rewardName.toLowerCase() === rewardName.toLowerCase())
+
+  const s = getState(streamerId)
+  const sessionId = s.session?.id ?? null
+
+  // Fonction helper pour tracer et retourner un echec
+  const fail = async (reason: string) => {
+    const r = await addRedemption(streamerId, {
+      sessionId,
+      userName,
+      rewardName,
+      challengeDescription: null,
+      success: false,
+      failReason: reason,
+      redeemedAt: new Date().toISOString(),
+    })
+    broadcast(streamerId, { type: 'REDEMPTION_LOGGED', data: r })
+    return { success: false as const, reason }
+  }
+
+  if (!mapping) return fail(`Aucun mapping configure pour la recompense "${rewardName}"`)
+  if (!s.session) return fail('Aucune session en cours')
+
+  const pending = s.pendingChallenges.filter((sc) => sc.status === 'pending')
+  if (pending.length === 0) return fail('Plus aucun defi en attente')
+
+  const target = pending[Math.floor(Math.random() * pending.length)]
+
+  // Passer le defi actuel en "skipped" si besoin
+  if (s.activeChallenge) {
+    await updateSessionChallengeStatus(streamerId, s.activeChallenge.id, 'skipped')
+    s.skippedCount++
+    stopTimer(streamerId)
+    s.timerSecondsLeft = null
+  }
+
+  const activated = (await updateSessionChallengeStatus(streamerId, target.id, 'active'))!
+  // Snapshot AVANT de filtrer pour que l'overlay ait la liste complète
+  const challengesSnapshot = [...s.pendingChallenges]
+  s.activeChallenge = activated
+  s.pendingChallenges = s.pendingChallenges.filter((sc) => sc.id !== target!.id)
+  s.votes = {}
+
+  // Tracer le succes
+  const redemption = await addRedemption(streamerId, {
+    sessionId,
+    userName,
+    rewardName,
+    challengeDescription: activated.challenge.description,
+    success: true,
+    failReason: null,
+    redeemedAt: new Date().toISOString(),
+  })
+
+  broadcast(streamerId, { type: 'WHEEL_SPUN', data: { activated, challenges: challengesSnapshot } })
+  broadcast(streamerId, { type: 'REDEMPTION_LOGGED', data: redemption })
+  broadcastState(streamerId)
+
+  console.log(`[EventSub:${streamerId}] Rachat par ${userName}: ${activated.challenge.description}`)
+  return { success: true, challengeDescription: activated.challenge.description }
+}
 
 export async function startEventSub(streamerId: string): Promise<void> {
   const enabled = (await getSetting(streamerId, 'channel_points_enabled')) === 'true'
@@ -73,31 +152,7 @@ export async function startEventSub(streamerId: string): Promise<void> {
     }
 
     listener.onChannelRedemptionAdd(user, async (event) => {
-      if (event.rewardTitle.toLowerCase() !== rewardName.toLowerCase()) return
-
-      const s = getState(streamerId)
-      if (!s.session) return
-
-      const pending = s.pendingChallenges.filter((sc) => sc.status === 'pending')
-      if (pending.length === 0) return
-
-      if (s.activeChallenge) {
-        await updateSessionChallengeStatus(streamerId, s.activeChallenge.id, 'skipped')
-        s.skippedCount++
-        stopTimer(streamerId)
-        s.timerSecondsLeft = null
-      }
-
-      const random = pending[Math.floor(Math.random() * pending.length)]
-      const activated = (await updateSessionChallengeStatus(streamerId, random.id, 'active'))!
-      s.activeChallenge = activated
-      s.pendingChallenges = s.pendingChallenges.filter((sc) => sc.id !== random.id)
-      s.votes = {}
-
-      broadcast(streamerId, { type: 'WHEEL_SPUN', data: activated })
-      broadcastState(streamerId)
-
-      console.log(`[EventSub:${streamerId}] Defi active par ${event.userDisplayName}: ${activated.challenge.title}`)
+      await handleChannelPointsRedemption(streamerId, event.rewardTitle, event.userDisplayName)
     })
 
     console.log(`[EventSub:${streamerId}] En ecoute des Channel Points de ${channel}`)

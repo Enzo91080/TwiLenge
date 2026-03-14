@@ -5,7 +5,7 @@ import { Sidebar } from './components/Sidebar'
 import { BottomNav } from './components/BottomNav'
 import { Dashboard } from './pages/Dashboard'
 import { Challenges } from './pages/Challenges'
-import { History } from './pages/History'
+import { TopViewers } from './pages/TopViewers'
 import { Settings } from './pages/Settings'
 import { Login } from './pages/Login'
 import { useWebSocket } from './hooks/useWebSocket'
@@ -87,7 +87,7 @@ export default function App() {
                 <>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/challenges" element={<Challenges />} />
-                  <Route path="/history" element={<History />} />
+                  <Route path="/top-viewers" element={<TopViewers />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </>

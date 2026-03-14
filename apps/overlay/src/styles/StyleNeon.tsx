@@ -2,12 +2,14 @@
 // STYLE NÉON — Fond noir, bordures lumineuses, glow intense
 // =============================================================
 
-import { CATEGORY_LABELS, DIFFICULTY_LABELS } from '@challenge-hub/shared'
+import { DIFFICULTY_LABELS } from '@challenge-hub/shared'
 import type { StyleProps } from './types'
-import { CATEGORY_COLORS, DIFFICULTY_COLORS, formatTime } from './colors'
+import { DIFFICULTY_COLORS, formatTime } from './colors'
+
+const ACCENT = '#F0C540'
 
 export function StyleNeon({ challenge: c, timerSecondsLeft }: StyleProps) {
-  const accent    = CATEGORY_COLORS[c.category]
+  const accent    = ACCENT
   const diffColor = DIFFICULTY_COLORS[c.difficulty]
 
   const isTimerLow    = timerSecondsLeft !== null && timerSecondsLeft <= 30
@@ -40,33 +42,20 @@ export function StyleNeon({ challenge: c, timerSecondsLeft }: StyleProps) {
 
       <div style={{ padding: '13px 16px 14px' }}>
 
-        {/* Catégorie en grand, style enseigne néon */}
+        {/* Statut en cours */}
         <div style={{
           fontSize: '10px', fontWeight: 900, letterSpacing: '0.3em', textTransform: 'uppercase',
           color: accent,
           textShadow: `0 0 8px ${accent}, 0 0 16px ${accent}80`,
           marginBottom: '8px',
         }}>
-          ◈ {CATEGORY_LABELS[c.category]}
-        </div>
-
-        {/* Titre */}
-        <div style={{
-          fontSize: '18px', fontWeight: 800, lineHeight: 1.2, textTransform: 'uppercase',
-          color: '#FFFFFF',
-          textShadow: '0 0 10px rgba(255,255,255,0.25)',
-          letterSpacing: '0.03em',
-          marginBottom: c.description ? '6px' : '12px',
-        }}>
-          {c.title}
+          ◈ Défi en cours
         </div>
 
         {/* Description */}
-        {c.description && (
-          <div style={{ fontSize: '11px', color: '#4A5568', lineHeight: 1.4, marginBottom: '12px' }}>
-            {c.description}
-          </div>
-        )}
+        <div style={{ fontSize: '14px', lineHeight: 1.45, color: '#FFFFFF', marginBottom: '12px' }}>
+          {c.description || '—'}
+        </div>
 
         {/* Barre de progression néon */}
         {timerSecondsLeft !== null && c.timerSeconds && (

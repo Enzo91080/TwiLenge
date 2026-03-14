@@ -2,24 +2,46 @@
 // PAGE DASHBOARD — Panneau de contrôle principal
 // =============================================================
 
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, Square, Shuffle, Target, XCircle, SkipForward, Gamepad2, Trophy } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Play, Square, Shuffle, Target, XCircle, SkipForward, Gamepad2, Trophy, Zap, CheckCircle2, ChevronDown } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAppState } from '../lib/context'
 import { ActiveChallenge } from '../components/ActiveChallenge'
 import { PendingChallengeCard } from '../components/ChallengeCard'
+import { SpinWheel } from '../components/SpinWheel'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { cn } from '../lib/utils'
+import type { SessionChallenge, Redemption } from '@challenge-hub/shared'
 
 export function Dashboard() {
-  const { appState } = useAppState()
+  const { appState, lastEvent } = useAppState()
   const { session, activeChallenge, pendingChallenges, completedCount, failedCount, skippedCount, votes } = appState
   const qc = useQueryClient()
 
   const [showEndConfirm, setShowEndConfirm] = useState(false)
+  const [spinWheelOpen, setSpinWheelOpen] = useState(false)
+  const [spinChallenges, setSpinChallenges] = useState<SessionChallenge[]>([])
+  const [spinResult, setSpinResult] = useState<SessionChallenge | null>(null)
+  const [showRedemptions, setShowRedemptions] = useState(false)
+
+  const redemptionsQuery = useQuery({
+    queryKey: ['redemptions', session?.id],
+    queryFn: () => api.redemptions.list(session?.id),
+    enabled: !!session,
+  })
+
+  // Capture le résultat du spin et les nouveaux rachats via WebSocket
+  useEffect(() => {
+    if (lastEvent?.type === 'WHEEL_SPUN') {
+      setSpinResult(lastEvent.data.activated)
+    }
+    if (lastEvent?.type === 'REDEMPTION_LOGGED') {
+      qc.invalidateQueries({ queryKey: ['redemptions', session?.id] })
+    }
+  }, [lastEvent])
 
   const onSuccess = () => qc.invalidateQueries({ queryKey: ['session'] })
 
@@ -31,8 +53,23 @@ export function Dashboard() {
     onSuccess,
   })
 
+  const handleSpin = () => {
+    setSpinChallenges([...pendingChallenges])
+    setSpinResult(null)
+    setSpinWheelOpen(true)
+    spinMut.mutate()
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+
+      {/* Roue de défis aléatoire */}
+      <SpinWheel
+        isOpen={spinWheelOpen}
+        challenges={spinChallenges}
+        result={spinResult}
+        onClose={() => setSpinWheelOpen(false)}
+      />
 
       {/* Modal de confirmation fin de session */}
       <ConfirmDialog
@@ -60,7 +97,7 @@ export function Dashboard() {
             <Button
               variant="purple"
               size="sm"
-              onClick={() => spinMut.mutate()}
+              onClick={handleSpin}
               disabled={spinMut.isPending || pendingChallenges.length === 0}
               title="Défi aléatoire"
             >
@@ -154,8 +191,68 @@ export function Dashboard() {
               </CardContent>
             </Card>
           )}
+
+          {/* Rachats Channel Points */}
+          {redemptionsQuery.data && redemptionsQuery.data.length > 0 && (
+            <div>
+              <button
+                className="flex items-center gap-2 w-full text-left mb-3 group"
+                onClick={() => setShowRedemptions((v) => !v)}
+              >
+                <Zap className="w-3.5 h-3.5 text-purple-400" />
+                <h2 className="text-xs font-semibold text-fortnite-muted uppercase tracking-widest flex-1">
+                  Rachats Channel Points ({redemptionsQuery.data.length})
+                </h2>
+                <ChevronDown className={cn(
+                  'w-4 h-4 text-fortnite-muted transition-transform',
+                  showRedemptions && 'rotate-180',
+                )} />
+              </button>
+
+              {showRedemptions && (
+                <div className="space-y-1.5">
+                  {[...redemptionsQuery.data].reverse().map((r) => (
+                    <RedemptionRow key={r.id} r={r} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
+    </div>
+  )
+}
+
+function RedemptionRow({ r }: { r: Redemption }) {
+  const time = new Date(r.redeemedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return (
+    <div className={cn(
+      'flex items-start gap-2 px-3 py-2 rounded-lg text-xs border',
+      r.success
+        ? 'bg-purple-500/5 border-purple-500/20'
+        : 'bg-red-500/5 border-red-500/20',
+    )}>
+      {r.success
+        ? <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 mt-0.5 shrink-0" />
+        : <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+      }
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-semibold text-white">{r.userName}</span>
+          <span className="text-fortnite-muted">·</span>
+          <span className="text-purple-300">{r.rewardName}</span>
+        </div>
+        {r.success && r.challengeDescription && (
+          <div className="text-fortnite-muted mt-0.5 truncate">
+            → <span className="text-white/80">{r.challengeDescription}</span>
+          </div>
+        )}
+        {!r.success && r.failReason && (
+          <div className="text-red-400/80 mt-0.5 truncate">{r.failReason}</div>
+        )}
+      </div>
+      <span className="text-fortnite-muted/50 shrink-0 tabular-nums">{time}</span>
     </div>
   )
 }

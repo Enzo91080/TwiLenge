@@ -24,7 +24,7 @@ const ALLOWED_SETTING_KEYS = new Set([
   'twitch_channel',
   'bot_enabled',
   'channel_points_enabled',
-  'channel_points_reward_name',
+  'channel_points_mappings',   // JSON : ChannelPointsMapping[]
   'bot_cmd_defi',
   'bot_cmd_score',
   'bot_cmd_prochains',
@@ -32,6 +32,7 @@ const ALLOWED_SETTING_KEYS = new Set([
   'bot_cmd_ok',
   'bot_cmd_fail',
   'bot_cmd_skip',
+  'bot_cmd_roue',
 ])
 
 // Route publique : statut app-level
@@ -67,7 +68,7 @@ export async function settingsRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ error: `Cles non autorisees : ${unknownKeys.join(', ')}` })
     }
 
-    const BOT_RESTART_KEYS = new Set(['twitch_channel', 'bot_enabled', 'channel_points_enabled'])
+    const BOT_RESTART_KEYS = new Set(['twitch_channel', 'bot_enabled', 'channel_points_enabled', 'channel_points_mappings'])
     let needsRestart = false
     for (const [key, value] of Object.entries(parsed.data)) {
       await setSetting(streamerId, key, value)

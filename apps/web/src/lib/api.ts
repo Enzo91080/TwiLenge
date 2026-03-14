@@ -6,7 +6,7 @@
 // change aussi VITE_API_URL dans apps/web/.env.local
 // =============================================================
 
-import type { Challenge, AppState, Session, SessionChallenge } from '@challenge-hub/shared'
+import type { Challenge, AppState, Session, SessionChallenge, Redemption } from '@challenge-hub/shared'
 
 const API_BASE = '/api'
 
@@ -82,6 +82,11 @@ export const api = {
     },
   },
 
+  redemptions: {
+    list: (sessionId?: number) =>
+      request<Redemption[]>(`/redemptions${sessionId !== undefined ? `?sessionId=${sessionId}` : ''}`),
+  },
+
   history: {
     list: () => request<(Session & { challenges: SessionChallenge[] })[]>('/history'),
     get: (id: number) => request<Session & { challenges: SessionChallenge[] }>(`/history/${id}`),
@@ -99,6 +104,15 @@ export const api = {
       authCallbackUrl: string
     }>('/status'),
   },
+
+  debug: {
+    simulateChannelPoints: (rewardName?: string, userName?: string) =>
+      request<{ success: boolean; challengeDescription: string; simulatedBy: string; rewardName: string }>(
+        '/debug/simulate-channel-points',
+        { method: 'POST', body: JSON.stringify({ rewardName, userName }) },
+      ),
+  },
+
 
   auth: {
     session: () => authRequest<{

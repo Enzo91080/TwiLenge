@@ -9,7 +9,7 @@
 import { MongoClient, Db } from 'mongodb'
 import { randomBytes } from 'crypto'
 import { config } from '../config.js'
-import type { Challenge, Session, SessionChallenge } from '@challenge-hub/shared'
+import type { Challenge, Session, SessionChallenge, Redemption } from '@challenge-hub/shared'
 
 interface ChallengeDoc {
   _id: number
@@ -27,6 +27,17 @@ interface SessionChallengeDoc {
   streamerId: string
   sessionId: number; challengeId: number; status: string
   activatedAt: string | null; completedAt: string | null
+}
+interface RedemptionDoc {
+  _id: number
+  streamerId: string
+  sessionId: number | null
+  userName: string
+  rewardName: string
+  challengeDescription: string | null
+  success: boolean
+  failReason: string | null
+  redeemedAt: string
 }
 interface SettingDoc { _id: string; value: string }   // _id = "streamerId:key"
 interface CounterDoc { _id: string; seq: number }     // _id = "name" (global) ou "name:streamerId"
@@ -49,6 +60,7 @@ export async function initDB(): Promise<void> {
   await challenges().createIndex({ streamerId: 1, sortOrder: 1 })
   await sessions().createIndex({ streamerId: 1 })
   await sessionChallenges().createIndex({ streamerId: 1, sessionId: 1 })
+  await redemptions().createIndex({ streamerId: 1, sessionId: 1, redeemedAt: -1 })
   // TTL index : supprime automatiquement les sessions auth expirees
   await db.collection<AuthSessionDoc>('authSessions').createIndex(
     { expiresAt: 1 },
@@ -65,6 +77,7 @@ function challenges() { return db.collection<ChallengeDoc>('challenges') }
 function sessions() { return db.collection<SessionDoc>('sessions') }
 function sessionChallenges() { return db.collection<SessionChallengeDoc>('sessionChallenges') }
 function settings() { return db.collection<SettingDoc>('settings') }
+function redemptions() { return db.collection<RedemptionDoc>('redemptions') }
 
 // IDs globaux : uniques sur toute la collection, peu importe le streamer
 async function getNextId(name: string): Promise<number> {
@@ -286,6 +299,43 @@ export async function updateSessionChallengeStatus(
     )
   }
   return getSessionChallengeById(streamerId, id)
+}
+
+// =============================================================
+// REQUETES REDEMPTIONS
+// =============================================================
+
+function docToRedemption(doc: RedemptionDoc): Redemption {
+  return {
+    id: doc._id,
+    sessionId: doc.sessionId,
+    userName: doc.userName,
+    rewardName: doc.rewardName,
+    challengeDescription: doc.challengeDescription,
+    success: doc.success,
+    failReason: doc.failReason,
+    redeemedAt: doc.redeemedAt,
+  }
+}
+
+export async function addRedemption(
+  streamerId: string,
+  data: Omit<Redemption, 'id'>,
+): Promise<Redemption> {
+  const id = await getNextId('redemptions')
+  const doc: RedemptionDoc = { _id: id, streamerId, ...data }
+  await redemptions().insertOne(doc)
+  return docToRedemption(doc)
+}
+
+export async function getRedemptions(
+  streamerId: string,
+  sessionId?: number,
+): Promise<Redemption[]> {
+  const filter: Record<string, unknown> = { streamerId }
+  if (sessionId !== undefined) filter.sessionId = sessionId
+  const docs = await redemptions().find(filter).sort({ redeemedAt: -1 }).toArray()
+  return docs.map(docToRedemption)
 }
 
 // =============================================================

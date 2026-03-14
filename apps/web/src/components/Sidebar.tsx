@@ -8,7 +8,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   List,
-  History,
+  Trophy,
   Settings,
   Wifi,
   WifiOff,
@@ -28,7 +28,7 @@ interface SidebarProps {
 const mainNavItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/challenges', label: 'Défis', icon: List },
-  { to: '/history', label: 'Historique', icon: History },
+  { to: '/top-viewers', label: 'Top Viewers', icon: Trophy },
 ]
 
 export function Sidebar({ connected, hasActiveSession, twitchConnected, twitchChannel, twitchAvatar }: SidebarProps) {

@@ -85,7 +85,33 @@ export type WSEvent =
   | { type: 'TIMER_EXPIRED'; data: null }
   | { type: 'TIMER_STOPPED'; data: null }
   | { type: 'VOTE_UPDATE'; data: Record<number, number> }
-  | { type: 'WHEEL_SPUN'; data: SessionChallenge }
+  | { type: 'WHEEL_SPUN'; data: { activated: SessionChallenge; challenges: SessionChallenge[] } }
+  | { type: 'REDEMPTION_LOGGED'; data: Redemption }
+
+// --- CHANNEL POINTS : RACHAT TRACÉ ---
+
+export interface Redemption {
+  id: number
+  // Session en cours au moment du rachat (null si aucune session active)
+  sessionId: number | null
+  // Pseudo Twitch du viewer
+  userName: string
+  // Nom de la récompense rachetée
+  rewardName: string
+  // Description du défi activé (null si échec)
+  challengeDescription: string | null
+  success: boolean
+  // Raison de l'échec (null si succès)
+  failReason: string | null
+  redeemedAt: string
+}
+
+// --- CHANNEL POINTS : MAPPINGS RECOMPENSE → ACTION ---
+
+export interface ChannelPointsMapping {
+  // Nom exact de la récompense Twitch (comparaison insensible à la casse)
+  rewardName: string
+}
 
 // --- STYLE VISUEL DE L'OVERLAY ---
 export type OverlayStyle = 'gaming' | 'minimal' | 'neon' | 'banner' | 'pill'
